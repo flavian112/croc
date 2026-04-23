@@ -186,6 +186,17 @@ cd vsim && ./run_vsim.sh --build --run ../sw/bin/helloworld.hex
 
 All `run_` scripts have a `--help` you can use to orient yourself.
 
+There is also a top-level [Makefile](Makefile) that wraps the existing scripts:
+
+```sh
+make init
+make asic
+make sim
+```
+
+Useful stage-level targets include `make synth`, `make backend`, `make gds`, `make seal`, `make fill`, `make flist`, and `make sim-vsim`.
+The Makefile is an orchestration layer only; it still relies on the same tool environment and underlying `run_*.sh` scripts.
+
 ### Building on Croc
 
 To add your own design, we recommend creating a new directory under `rtl/` or put single source files (small designs) into `rtl/user_domain`, then go into `Bender.yml` and add the files in the indicated places.
