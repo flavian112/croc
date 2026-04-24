@@ -56,11 +56,17 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
   sbr_obi_req_t user_design_obi_req;
   sbr_obi_rsp_t user_design_obi_rsp;
 
+  // User ROM Bus
+  sbr_obi_req_t user_rom_obi_req;
+  sbr_obi_rsp_t user_rom_obi_rsp;
+
   // Fanout into more readable signals
   assign user_error_obi_req               = all_user_sbr_obi_req[UserError];
   assign all_user_sbr_obi_rsp[UserError]  = user_error_obi_rsp;
   assign user_design_obi_req              = all_user_sbr_obi_req[UserDesign];
   assign all_user_sbr_obi_rsp[UserDesign] = user_design_obi_rsp;
+  assign user_rom_obi_req                 = all_user_sbr_obi_req[UserRom];
+  assign all_user_sbr_obi_rsp[UserRom]    = user_rom_obi_rsp;
 
 
   //-----------------------------------------------------------------------------------------------
@@ -109,7 +115,7 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
 //-------------------------------------------------------------------------------------------------
 
   ///////////////////////////////////////////
-  // DSP FFT Accelerator (256-pt ZipCPU)  //
+  // DSP FFT Accelerator (64-pt ZipCPU)   //
   ///////////////////////////////////////////
   dsp_obi_wrapper i_dsp_fft (
     .clk_i,
@@ -120,6 +126,16 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
     .obi_mgr_req_o ( user_mgr_obi_req_o    ),
     .obi_mgr_rsp_i ( user_mgr_obi_rsp_i    ),
     .irq_o         ( interrupts_o[0]        )
+  );
+
+  ///////////////////////////////////////////
+  // User ROM                              //
+  ///////////////////////////////////////////
+  user_rom i_user_rom (
+    .clk_i,
+    .rst_ni,
+    .obi_req_i ( user_rom_obi_req ),
+    .obi_rsp_o ( user_rom_obi_rsp )
   );
 
   // Error Subordinate

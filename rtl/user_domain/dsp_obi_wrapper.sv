@@ -12,7 +12,7 @@
 // Generated with: fftgen -f 64 -n 16 -1 -d rtl/user_domain/fft_core/
 //   IWIDTH = 16 (16 bits per component in), OWIDTH = 20 (20 bits per component out)
 //
-// Register map (byte addresses relative to base, i.e. relative to UserBaseAddr = 0x2000_0000):
+// Register map (byte addresses relative to base, i.e. relative to UserBaseAddr+0x1000 = 0x2000_1000):
 //   +0x00  CTRL      [0]=START (self-clearing write-only)
 //   +0x04  STATUS    [0]=BUSY, [1]=DONE
 //   +0x08  SRC_ADDR  32-bit source address for 64 packed complex samples

@@ -186,6 +186,7 @@
 ../rtl/user_domain/fft_core/laststage.v
 ../rtl/user_domain/fft_core/fftstage.v
 ../rtl/user_domain/fft_core/fftmain.v
+../rtl/user_domain/user_rom.sv
 ../rtl/user_domain/dsp_obi_wrapper.sv
 ../rtl/user_domain.sv
 ../rtl/croc_soc.sv
