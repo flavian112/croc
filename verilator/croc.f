@@ -176,6 +176,17 @@
 ../rtl/clint/clint.sv
 ../rtl/obi_timer/obi_timer.sv
 ../rtl/croc_domain.sv
+../rtl/user_domain/fft_core/convround.v
+../rtl/user_domain/fft_core/bimpy.v
+../rtl/user_domain/fft_core/longbimpy.v
+../rtl/user_domain/fft_core/butterfly.v
+../rtl/user_domain/fft_core/hwbfly.v
+../rtl/user_domain/fft_core/bitreverse.v
+../rtl/user_domain/fft_core/qtrstage.v
+../rtl/user_domain/fft_core/laststage.v
+../rtl/user_domain/fft_core/fftstage.v
+../rtl/user_domain/fft_core/fftmain.v
+../rtl/user_domain/dsp_obi_wrapper.sv
 ../rtl/user_domain.sv
 ../rtl/croc_soc.sv
 ../rtl/croc_chip.sv
