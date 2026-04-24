@@ -30,7 +30,7 @@ package croc_pkg;
   ////////////////////////
   // iDMA Configuration //
   ////////////////////////
-  localparam bit iDMAEnable = 1'b1;
+  localparam bit iDMAEnable = 0'b1;
 
 
   //////////////////////////
