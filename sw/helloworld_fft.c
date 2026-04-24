@@ -6,7 +6,7 @@
 // - Flavian Kaufmann
 // - Thanu Kanagalingam
 
-// Benchmark: 64-point FFT — software (Cooley-Tukey) vs hardware accelerator.
+// Benchmark: 64-point FFT -- software (Cooley-Tukey) vs hardware accelerator.
 //
 // Both SW and HW use the same data format and scaling, so outputs are directly comparable:
 //   - Data format: each uint32_t = {real[15:0], imag[15:0]}

@@ -24,7 +24,7 @@
 //   Output: 64 words at DST_ADDR  (256 bytes), truncated from 20-bit to 16-bit per component
 //
 // OBI subordinate: control registers, always clocked on clk_i (not gated).
-// OBI manager    : DMA port — reads inputs from SRAM (FETCH), writes outputs to SRAM (STORE).
+// OBI manager    : DMA port -- reads inputs from SRAM (FETCH), writes outputs to SRAM (STORE).
 //                  FETCH and STORE never overlap (different FSM states).
 //
 // Clock gating: tc_clk_gating gates the ZipCPU FFT core clock when not busy.
@@ -52,7 +52,7 @@ module dsp_obi_wrapper
 );
 
   // ---------------------------------------------------------------------------
-  // FFT parameters — must match the generated fftmain.v
+  // FFT parameters -- must match the generated fftmain.v
   // ---------------------------------------------------------------------------
   localparam int unsigned IWIDTH = 16;
   localparam int unsigned OWIDTH = 20;
@@ -71,7 +71,7 @@ module dsp_obi_wrapper
 
   dsp_state_e state_q, state_d;
 
-  // Counters: 9-bit, holding values 0..FFT_N (max 64, fits in 7 bits — 9 for safety)
+  // Counters: 9-bit, holding values 0..FFT_N (max 64, fits in 7 bits -- 9 for safety)
   logic [8:0] fetch_req_q;   // OBI read requests issued
   logic [8:0] fetch_rsp_q;   // OBI read responses received
   logic [8:0] store_req_q;   // OBI write requests issued
@@ -93,7 +93,7 @@ module dsp_obi_wrapper
                      & (state_q == DSP_IDLE);
 
   // ---------------------------------------------------------------------------
-  // OBI Subordinate — register bank (always on clk_i, not gated)
+  // OBI Subordinate -- register bank (always on clk_i, not gated)
   // Standard 1-cycle-latency OBI subordinate: gnt=1 combinatorially,
   // rvalid one cycle after req.
   // ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ module dsp_obi_wrapper
   end
 
   // ---------------------------------------------------------------------------
-  // FSM — next-state logic (combinatorial)
+  // FSM -- next-state logic (combinatorial)
   // ---------------------------------------------------------------------------
   always_comb begin
     state_d = state_q;
@@ -174,7 +174,7 @@ module dsp_obi_wrapper
   end
 
   // ---------------------------------------------------------------------------
-  // FSM — registered state and counters
+  // FSM -- registered state and counters
   // ---------------------------------------------------------------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -260,7 +260,7 @@ module dsp_obi_wrapper
   //  - FETCH:      one ce per valid read response (one sample per rvalid)
   //  - WAIT_SYNC:  always 1 to drain pipeline, but STOP on the cycle fft_sync fires
   //                (that cycle fft_result already holds sample 0; don't advance it)
-  //  - STORE:      gated by gnt — stall pipeline if write is back-pressured
+  //  - STORE:      gated by gnt -- stall pipeline if write is back-pressured
   assign fft_ce = ((state_q == DSP_FETCH)      &  obi_mgr_rsp_i.rvalid)
                 | ((state_q == DSP_WAIT_SYNC)   & !fft_sync)
                 | ((state_q == DSP_STORE)        & (store_req_q < FFT_N) & obi_mgr_rsp_i.gnt);
@@ -281,9 +281,9 @@ module dsp_obi_wrapper
   );
 
   // ---------------------------------------------------------------------------
-  // OBI Manager — DMA reads (FETCH) and writes (STORE)
+  // OBI Manager -- DMA reads (FETCH) and writes (STORE)
   // ---------------------------------------------------------------------------
-  // Output truncation: OWIDTH=20 → 16 bits, keep the most significant bits.
+  // Output truncation: OWIDTH=20 -> 16 bits, keep the most significant bits.
   //   o_result[39:20] = real[19:0],  top 16 bits = o_result[39:24]
   //   o_result[19:0]  = imag[19:0],  top 16 bits = o_result[19:4]
   //   wdata = {real[15:0], imag[15:0]} = {o_result[39:24], o_result[19:4]}
@@ -317,7 +317,7 @@ module dsp_obi_wrapper
   end
 
   // ---------------------------------------------------------------------------
-  // Interrupt — one-cycle rising-edge pulse on DONE, gated by irq_enable
+  // Interrupt -- one-cycle rising-edge pulse on DONE, gated by irq_enable
   // ---------------------------------------------------------------------------
   logic done_prev_q;
   always_ff @(posedge clk_i or negedge rst_ni) begin

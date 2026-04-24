@@ -26,7 +26,7 @@
 #define EXPECTED_OUT \
     0x00400000u // real=0x0040, imag=0x0000
                 // 0x1000 >> stage_16_shift(1) >> laststage_shift(1)
-                // = 0x0400 in 20-bit → bits[19:4] = 0x0040
+                // = 0x0400 in 20-bit -> bits[19:4] = 0x0040
 
 // Static buffers in SRAM. 2 x 64 x 4 = 512 bytes.
 static volatile uint32_t in_buf[FFT_N];

@@ -33,7 +33,7 @@ static inline void dsp_set_dst(uint32_t addr) {
     *reg32(DSP_BASE_ADDR, DSP_DST_ADDR_OFFSET) = addr;
 }
 
-// Kick off the FFT — writes START bit, self-clears in hardware
+// Kick off the FFT -- writes START bit, self-clears in hardware
 static inline void dsp_start(void) {
     *reg32(DSP_BASE_ADDR, DSP_CTRL_OFFSET) = 1;
 }
