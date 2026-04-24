@@ -86,9 +86,9 @@ utl::report "Repair design"
 repair_design -verbose
 save_checkpoint 02-02_${proj_name}.gpl1_fix
 
-utl::report "Repair setup"
-repair_timing -setup -verbose
-save_checkpoint 02-02_${proj_name}.gpl1_repaired
+# repair_timing -setup skipped: pre-routing wire estimates produce ~9600 structural
+# violations on CVE2 crash_dump paths (WNS≈-9.5ns) that buffering cannot fix.
+# Post-routing repair with accurate parasitics is done in stage 05 instead.
 
 # Actual global placement with routability and timing driven
 utl::report "Global Placement (2)"

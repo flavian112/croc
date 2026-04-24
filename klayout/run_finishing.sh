@@ -100,7 +100,7 @@ gen_seal_ring() {
     run_cmd "die_width=$(( ${die_um[-2]} / 1000 ))"
     run_cmd "die_height=$(( ${die_um[-1]} / 1000 ))"
     run_cmd "seal_width=$(( $die_width + 2 * $SEAL_RING_SPACE ))"
-    run_cmd "seal_height=$(( $die_width + 2 * $SEAL_RING_SPACE ))"
+    run_cmd "seal_height=$(( $die_height + 2 * $SEAL_RING_SPACE ))"
     run_cmd "echo [INFO][KLayout] Read ../openroad/out/${PROJ_NAME}.def - die area: ${die_width} um x ${die_height} um"
     run_cmd "echo [INFO][KLayout] Chip dimensions with seal: ${seal_width} um x ${seal_height} um"
     run_cmd "klayout -n sg13g2 -zz \
