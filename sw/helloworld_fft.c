@@ -25,8 +25,7 @@
 // Twiddle factors W_k = exp(-j*2*pi*k/16) for k = 0..7, stored as {cos_k, sin_k} pairs.
 // Values are in Q1.15 format (scaled by 32767).
 static const int16_t tw16[16] = {
-    32767,  0,      30274,  12540,  23170,  23170,  12540,  30274,
-    0,      32767,  -12540, 30274,  -23170, 23170,  -30274, 12540,
+    32767, 0, 30274, 12540, 23170, 23170, 12540, 30274, 0, 32767, -12540, 30274, -23170, 23170, -30274, 12540,
 };
 
 // In-place 16-pt radix-2 DIT FFT on a buffer of packed {real[15:0], imag[15:0]} words.

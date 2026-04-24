@@ -55,7 +55,7 @@ int main() {
 
     // --- Verify output: all 32 bins should be equal (DFT of impulse = constant) ---
     uint32_t expected = out_buf[0];
-    CHECK_ASSERT(9, expected != 0);  // sanity: FFT must have produced nonzero output
+    CHECK_ASSERT(9, expected != 0); // sanity: FFT must have produced nonzero output
     for (int k = 0; k < FFT_N; k++) {
         CHECK_ASSERT(10 + k, out_buf[k] == expected);
     }
