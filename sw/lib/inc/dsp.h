@@ -45,7 +45,8 @@ static inline int dsp_is_done(void) {
 
 // Spin-wait until the FFT is done
 static inline void dsp_wait_done(void) {
-    while (!dsp_is_done());
+    while (!dsp_is_done())
+        ;
 }
 
 // Convenience: set addresses, start, and wait
