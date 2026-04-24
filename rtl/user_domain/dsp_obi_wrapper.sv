@@ -1,3 +1,11 @@
+// Copyright (c) 2026 ETH Zurich and University of Bologna.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Authors:
+// - Flavian Kaufmann
+// - Thanu Kanagalingam
+
 // 64-point fixed-point FFT accelerator for the Croc SoC user domain.
 //
 // Uses the pre-generated ZipCPU dblclockfft core (fftmain.v, LGPL v3).

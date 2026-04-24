@@ -49,6 +49,7 @@ exclude-paths:
   - yosys/out
   - yosys/reports
   - yosys/tmp
+  - rtl/user_domain/fft_core
 
 
 allowed-years:

@@ -1,3 +1,11 @@
+// Copyright (c) 2026 ETH Zurich and University of Bologna.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Authors:
+// - Flavian Kaufmann
+// - Thanu Kanagalingam
+
 #pragma once
 
 #include <stdint.h>
@@ -5,15 +13,15 @@
 #include "util.h"
 
 // Register offsets from DSP_BASE_ADDR
-#define DSP_CTRL_OFFSET      0x00
-#define DSP_STATUS_OFFSET    0x04
-#define DSP_SRC_ADDR_OFFSET  0x08
-#define DSP_DST_ADDR_OFFSET  0x0C
-#define DSP_IRQ_CTRL_OFFSET  0x10
+#define DSP_CTRL_OFFSET     0x00
+#define DSP_STATUS_OFFSET   0x04
+#define DSP_SRC_ADDR_OFFSET 0x08
+#define DSP_DST_ADDR_OFFSET 0x0C
+#define DSP_IRQ_CTRL_OFFSET 0x10
 
 // STATUS register bits
-#define DSP_STATUS_BUSY_BIT  0
-#define DSP_STATUS_DONE_BIT  1
+#define DSP_STATUS_BUSY_BIT 0
+#define DSP_STATUS_DONE_BIT 1
 
 // Set the source address for FFT_N packed complex input samples
 static inline void dsp_set_src(uint32_t addr) {

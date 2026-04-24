@@ -1,3 +1,11 @@
+// Copyright (c) 2026 ETH Zurich and University of Bologna.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Authors:
+// - Flavian Kaufmann
+// - Thanu Kanagalingam
+
 // Test: 64-point FFT accelerator correctness.
 //
 // Feeds a unit impulse at n=0 and checks that all output bins are equal.
@@ -13,11 +21,12 @@
 #include "dsp.h"
 #include "config.h"
 
-#define FFT_N 64
-#define IMPULSE_VAL    0x10000000u   // real=0x1000, imag=0x0000
-#define EXPECTED_OUT   0x00400000u   // real=0x0040, imag=0x0000
-                                     // 0x1000 >> stage_16_shift(1) >> laststage_shift(1)
-                                     // = 0x0400 in 20-bit → bits[19:4] = 0x0040
+#define FFT_N       64
+#define IMPULSE_VAL 0x10000000u // real=0x1000, imag=0x0000
+#define EXPECTED_OUT \
+    0x00400000u // real=0x0040, imag=0x0000
+                // 0x1000 >> stage_16_shift(1) >> laststage_shift(1)
+                // = 0x0400 in 20-bit → bits[19:4] = 0x0040
 
 // Static buffers in SRAM. 2 x 64 x 4 = 512 bytes.
 static volatile uint32_t in_buf[FFT_N];
@@ -36,12 +45,10 @@ int main() {
     CHECK_ASSERT(3, *reg32(DSP_BASE_ADDR, DSP_STATUS_OFFSET) == 0);
 
     // --- Prepare impulse input ---
-    for (int i = 0; i < FFT_N; i++)
-        in_buf[i] = (i == 0) ? IMPULSE_VAL : 0;
+    for (int i = 0; i < FFT_N; i++) in_buf[i] = (i == 0) ? IMPULSE_VAL : 0;
 
     // Clear output buffer
-    for (int i = 0; i < FFT_N; i++)
-        out_buf[i] = 0;
+    for (int i = 0; i < FFT_N; i++) out_buf[i] = 0;
 
     // --- Run FFT ---
     dsp_run((uint32_t)in_buf, (uint32_t)out_buf);
