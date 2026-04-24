@@ -34,7 +34,7 @@
 // Arguments:	This file was computer generated using the following command
 //		line:
 //
-//		% /Users/flavian/opt/dblclockfft/sw/fftgen -f 64 -n 16 -1 -d /Users/flavian/repos/croc/rtl/user_domain/fft_core/
+//		% /Users/flavian/opt/dblclockfft/sw/fftgen -f 64 -n 16 -k 2 -d /Users/flavian/repos/croc/rtl/user_domain/fft_core/
 //
 //	This core will use hardware accelerated multiplies (DSPs)
 //	for 0 of the 6 stages
@@ -107,7 +107,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.LGSPAN(5),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
-		.CKPCE(1),
+		.CKPCE(2),
 		.COEFFILE("cmem_64.hex")
 		// }}}
 	) stage_64(
@@ -133,7 +133,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.LGSPAN(4),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
-		.CKPCE(1),
+		.CKPCE(2),
 		.COEFFILE("cmem_32.hex")
 		// }}}
 	) stage_32(
@@ -158,7 +158,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.LGSPAN(3),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
-		.CKPCE(1),
+		.CKPCE(2),
 		.COEFFILE("cmem_16.hex")
 		// }}}
 	) stage_16(
@@ -183,7 +183,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.LGSPAN(2),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
-		.CKPCE(1),
+		.CKPCE(2),
 		.COEFFILE("cmem_8.hex")
 		// }}}
 	) stage_8(

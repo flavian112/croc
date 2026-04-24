@@ -134,7 +134,7 @@ module	butterfly #(
 		// CKPCE is the number of clocks per each i_ce.  The actual
 		// number can be more, but the algorithm depends upon at least
 		// this many for extra internal processing.
-		parameter	CKPCE=1,
+		parameter	CKPCE=2,
 		// }}}
 		//
 		// Local/derived parameters

@@ -80,7 +80,7 @@ module	fftstage #(
 		// to 2'b11, and insisting on at least two clocks with i_ce low
 		// between cycles with i_ce high, then the hardware optimized
 		// butterfly code will used one multiply instead of two.
-		parameter	CKPCE = 1,
+		parameter	CKPCE = 2,
 		// The COEFFILE parameter contains the name of the file
 		// containing the FFT twiddle factors
 		parameter	COEFFILE="cmem_64.hex",

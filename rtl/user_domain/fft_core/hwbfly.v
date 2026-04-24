@@ -83,7 +83,7 @@ module	hwbfly #(
 		// CKPCE
 		// {{{
 		// The number of clocks per clock enable, 1, 2, or 3.
-		parameter	[1:0]	CKPCE=1
+		parameter	[1:0]	CKPCE=2
 		// }}}
 		// }}}
 	) (
