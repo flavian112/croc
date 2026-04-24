@@ -71,7 +71,7 @@ module	fftstage #(
 		// size) is 3.  Smaller spans (i.e. the span of 2) must use the
 		// dbl laststage module.
 		// Verilator lint_off UNUSED
-		parameter	LGSPAN=5, BFLYSHIFT=0, // LGWIDTH=6
+		parameter	LGSPAN=3, BFLYSHIFT=0, // LGWIDTH=4
 		parameter [0:0]	OPT_HWMPY = 1,
 		// Clocks per CE.  If your incoming data rate is less than 50%
 		// of your clock speed, you can set CKPCE to 2'b10, make sure
@@ -83,7 +83,7 @@ module	fftstage #(
 		parameter	CKPCE = 2,
 		// The COEFFILE parameter contains the name of the file
 		// containing the FFT twiddle factors
-		parameter	COEFFILE="cmem_64.hex",
+		parameter	COEFFILE="cmem_16.hex",
 		// Verilator lint_on  UNUSED
 
 `ifdef	VERILATOR

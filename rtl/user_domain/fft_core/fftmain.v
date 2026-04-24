@@ -7,7 +7,7 @@
 // Purpose:	This is the main module in the General Purpose FPGA FFT
 //		implementation.  As such, all other modules are subordinate
 //	to this one.  This module accomplish a fixed size Complex FFT on
-//	64 data points.
+//	16 data points.
 //	The FFT is fully pipelined, and accepts as inputs one complex two's
 //	complement sample per clock.
 //
@@ -25,8 +25,8 @@
 //			the real portion in the high order bits, and the
 //			imaginary portion taking the bottom 16 bits.
 //	o_result	The output result, of the same format as i_sample,
-//			only having 20 bits for each of the real and imaginary
-//			components, leading to 40 bits total.
+//			only having 19 bits for each of the real and imaginary
+//			components, leading to 38 bits total.
 //	o_sync	A one bit output indicating the first sample of the FFT frame.
 //			It also indicates the first valid sample out of the FFT
 //			on the first frame.
@@ -34,10 +34,10 @@
 // Arguments:	This file was computer generated using the following command
 //		line:
 //
-//		% /Users/flavian/opt/dblclockfft/sw/fftgen -f 64 -n 16 -k 2 -d /Users/flavian/repos/croc/rtl/user_domain/fft_core/
+//		% /Users/flavian/opt/dblclockfft/sw/fftgen -f 16 -n 16 -k 2 -d /Users/flavian/repos/croc/rtl/user_domain/fft_core/
 //
 //	This core will use hardware accelerated multiplies (DSPs)
-//	for 0 of the 6 stages
+//	for 0 of the 4 stages
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -83,7 +83,7 @@ module fftmain(i_clk, i_reset, i_ce,
 	// changed.  (These values can be adjusted by running the core
 	// generator again.)  The reason is simply that these values have
 	// been hardwired into the core at several places.
-	localparam	IWIDTH=16, OWIDTH=20; // LGWIDTH=6;
+	localparam	IWIDTH=16, OWIDTH=19; // LGWIDTH=4;
 	//
 	input	wire				i_clk, i_reset, i_ce;
 	//
@@ -97,64 +97,13 @@ module fftmain(i_clk, i_reset, i_ce,
 	wire	[(2*OWIDTH-1):0]	br_result;
 
 
-	wire		w_s64;
-	wire	[33:0]	w_d64;
+	wire		w_s16;
+	wire	[33:0]	w_d16;
 	fftstage	#(
 		// {{{
 		.IWIDTH(IWIDTH),
 		.CWIDTH(IWIDTH+4),
 		.OWIDTH(17),
-		.LGSPAN(5),
-		.BFLYSHIFT(0),
-		.OPT_HWMPY(0),
-		.CKPCE(2),
-		.COEFFILE("cmem_64.hex")
-		// }}}
-	) stage_64(
-		// {{{
-		.i_clk(i_clk),
-		.i_reset(i_reset),
-		.i_ce(i_ce),
-		.i_sync(!i_reset),
-		.i_data(i_sample),
-		.o_data(w_d64),
-		.o_sync(w_s64)
-		// }}}
-	);
-
-
-	wire		w_s32;
-	wire	[35:0]	w_d32;
-	fftstage	#(
-		// {{{
-		.IWIDTH(17),
-		.CWIDTH(21),
-		.OWIDTH(18),
-		.LGSPAN(4),
-		.BFLYSHIFT(0),
-		.OPT_HWMPY(0),
-		.CKPCE(2),
-		.COEFFILE("cmem_32.hex")
-		// }}}
-	) stage_32(
-		// {{{
-		.i_clk(i_clk),
-		.i_reset(i_reset),
-		.i_ce(i_ce),
-		.i_sync(w_s64),
-		.i_data(w_d64),
-		.o_data(w_d32),
-		.o_sync(w_s32)
-		// }}}
-	);
-
-	wire		w_s16;
-	wire	[35:0]	w_d16;
-	fftstage	#(
-		// {{{
-		.IWIDTH(18),
-		.CWIDTH(22),
-		.OWIDTH(18),
 		.LGSPAN(3),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
@@ -166,20 +115,21 @@ module fftmain(i_clk, i_reset, i_ce,
 		.i_clk(i_clk),
 		.i_reset(i_reset),
 		.i_ce(i_ce),
-		.i_sync(w_s32),
-		.i_data(w_d32),
+		.i_sync(!i_reset),
+		.i_data(i_sample),
 		.o_data(w_d16),
 		.o_sync(w_s16)
 		// }}}
 	);
 
+
 	wire		w_s8;
-	wire	[37:0]	w_d8;
+	wire	[35:0]	w_d8;
 	fftstage	#(
 		// {{{
-		.IWIDTH(18),
-		.CWIDTH(22),
-		.OWIDTH(19),
+		.IWIDTH(17),
+		.CWIDTH(21),
+		.OWIDTH(18),
 		.LGSPAN(2),
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
@@ -199,12 +149,12 @@ module fftmain(i_clk, i_reset, i_ce,
 	);
 
 	wire		w_s4;
-	wire	[37:0]	w_d4;
+	wire	[35:0]	w_d4;
 	qtrstage	#(
 		// {{{
-		.IWIDTH(19),
-		.OWIDTH(19),
-		.LGWIDTH(6),
+		.IWIDTH(18),
+		.OWIDTH(18),
+		.LGWIDTH(4),
 		.INVERSE(0),
 		.SHIFT(0)
 		// }}}
@@ -222,11 +172,11 @@ module fftmain(i_clk, i_reset, i_ce,
 	// verilator lint_off UNUSED
 	wire		w_s2;
 	// verilator lint_on  UNUSED
-	wire	[39:0]	w_d2;
+	wire	[37:0]	w_d2;
 	laststage	#(
 		// {{{
-		.IWIDTH(19),
-		.OWIDTH(20),
+		.IWIDTH(18),
+		.OWIDTH(19),
 		.SHIFT(1)
 		// }}}
 	) stage_2(
@@ -255,7 +205,7 @@ module fftmain(i_clk, i_reset, i_ce,
 	// Now for the bit-reversal stage.
 	bitreverse	#(
 		// {{{
-		.LGSIZE(6), .WIDTH(20)
+		.LGSIZE(4), .WIDTH(19)
 		// }}}
 	) revstage (
 		// {{{

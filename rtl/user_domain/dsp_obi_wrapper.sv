@@ -6,11 +6,11 @@
 // - Flavian Kaufmann
 // - Thanu Kanagalingam
 
-// 64-point fixed-point FFT accelerator for the Croc SoC user domain.
+// 16-point fixed-point FFT accelerator for the Croc SoC user domain.
 //
 // Uses the pre-generated ZipCPU dblclockfft core (fftmain.v, LGPL v3).
-// Generated with: fftgen -f 64 -n 16 -1 -d rtl/user_domain/fft_core/
-//   IWIDTH = 16 (16 bits per component in), OWIDTH = 20 (20 bits per component out)
+// Generated with: fftgen -f 16 -n 16 -k 2 -d rtl/user_domain/fft_core/
+//   IWIDTH = 16 (16 bits per component in), OWIDTH = 19 (19 bits per component out)
 //
 // Register map (byte addresses relative to base, i.e. relative to UserBaseAddr+0x1000 = 0x2000_1000):
 //   +0x00  CTRL      [0]=START (self-clearing write-only)
@@ -20,8 +20,8 @@
 //   +0x10  IRQ_CTRL  [0]=irq_enable
 //
 // Data format: each 32-bit word = {real[15:0], imag[15:0]}
-//   Input : 64 words at SRC_ADDR  (256 bytes)
-//   Output: 64 words at DST_ADDR  (256 bytes), truncated from 20-bit to 16-bit per component
+//   Input : 16 words at SRC_ADDR  (64 bytes)
+//   Output: 16 words at DST_ADDR  (64 bytes), truncated from 19-bit to 16-bit per component
 //
 // OBI subordinate: control registers, always clocked on clk_i (not gated).
 // OBI manager    : DMA port -- reads inputs from SRAM (FETCH), writes outputs to SRAM (STORE).
@@ -55,8 +55,8 @@ module dsp_obi_wrapper
   // FFT parameters -- must match the generated fftmain.v
   // ---------------------------------------------------------------------------
   localparam int unsigned IWIDTH = 16;
-  localparam int unsigned OWIDTH = 20;
-  localparam int unsigned FFT_N  = 64;
+  localparam int unsigned OWIDTH = 19;
+  localparam int unsigned FFT_N  = 16;
 
   // ---------------------------------------------------------------------------
   // FSM states
@@ -256,14 +256,24 @@ module dsp_obi_wrapper
   // Synchronous active-high reset for one cycle at the start of each computation
   assign fft_reset = (state_q == DSP_RST);
 
+  // CKPCE=2: the ZipCPU pipeline requires at least one idle cycle between i_ce pulses.
+  // fft_ce_stall is high for exactly one cycle after every fft_ce pulse.
+  logic fft_ce_stall;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) fft_ce_stall <= 1'b0;
+    else         fft_ce_stall <= fft_ce;
+  end
+
   // Clock enable:
-  //  - FETCH:      one ce per valid read response (one sample per rvalid)
-  //  - WAIT_SYNC:  always 1 to drain pipeline, but STOP on the cycle fft_sync fires
-  //                (that cycle fft_result already holds sample 0; don't advance it)
-  //  - STORE:      gated by gnt -- stall pipeline if write is back-pressured
-  assign fft_ce = ((state_q == DSP_FETCH)      &  obi_mgr_rsp_i.rvalid)
-                | ((state_q == DSP_WAIT_SYNC)   & !fft_sync)
-                | ((state_q == DSP_STORE)        & (store_req_q < FFT_N) & obi_mgr_rsp_i.gnt);
+  //  - FETCH:      one ce per valid read response.  The OBI req is gated by !fft_ce
+  //                (combinational) so a new request is never issued on the same cycle
+  //                that a response arrives, guaranteeing a 1-cycle gap before the
+  //                next rvalid (and therefore the next fft_ce).
+  //  - WAIT_SYNC:  drain pipeline every other cycle; stop on the cycle fft_sync fires.
+  //  - STORE:      gated by gnt; stall every other cycle for CKPCE=2.
+  assign fft_ce = ((state_q == DSP_FETCH)    &  obi_mgr_rsp_i.rvalid)
+                | ((state_q == DSP_WAIT_SYNC) & !fft_sync             & !fft_ce_stall)
+                | ((state_q == DSP_STORE)     & (store_req_q < FFT_N) & obi_mgr_rsp_i.gnt & !fft_ce_stall);
 
   // FFT input: packed {real[15:0], imag[15:0]} word read from SRAM
   assign fft_sample = (state_q == DSP_FETCH) ? obi_mgr_rsp_i.r.rdata : '0;
@@ -283,12 +293,12 @@ module dsp_obi_wrapper
   // ---------------------------------------------------------------------------
   // OBI Manager -- DMA reads (FETCH) and writes (STORE)
   // ---------------------------------------------------------------------------
-  // Output truncation: OWIDTH=20 -> 16 bits, keep the most significant bits.
-  //   o_result[39:20] = real[19:0],  top 16 bits = o_result[39:24]
-  //   o_result[19:0]  = imag[19:0],  top 16 bits = o_result[19:4]
-  //   wdata = {real[15:0], imag[15:0]} = {o_result[39:24], o_result[19:4]}
+  // Output truncation: OWIDTH=19 -> 16 bits, keep the most significant bits.
+  //   o_result[37:19] = real[18:0],  top 16 bits = o_result[37:22]
+  //   o_result[18:0]  = imag[18:0],  top 16 bits = o_result[18:3]
+  //   wdata = {real[15:0], imag[15:0]} = {o_result[37:22], o_result[18:3]}
   logic [31:0] fft_result_truncated;
-  assign fft_result_truncated = {fft_result[39:24], fft_result[19:4]};
+  assign fft_result_truncated = {fft_result[37:22], fft_result[18:3]};
 
   always_comb begin
     obi_mgr_req_o         = '0;
@@ -296,7 +306,9 @@ module dsp_obi_wrapper
 
     unique case (state_q)
       DSP_FETCH: begin
-        if (fetch_req_q < FFT_N) begin
+        // Gate req when fft_ce is firing this cycle: prevents back-to-back rvalid
+        // which would violate the CKPCE=2 minimum gap requirement.
+        if (fetch_req_q < FFT_N && !fft_ce) begin
           obi_mgr_req_o.req    = 1'b1;
           obi_mgr_req_o.a.we   = 1'b0;
           obi_mgr_req_o.a.addr = src_addr_q + {fetch_req_q[7:0], 2'b00};
@@ -304,7 +316,9 @@ module dsp_obi_wrapper
       end
 
       DSP_STORE: begin
-        if (store_req_q < FFT_N) begin
+        // Gate req with fft_ce_stall so we only write one word per two cycles,
+        // matching the CKPCE=2 pipeline advance rate.
+        if (store_req_q < FFT_N && !fft_ce_stall) begin
           obi_mgr_req_o.req    = 1'b1;
           obi_mgr_req_o.a.we   = 1'b1;
           obi_mgr_req_o.a.addr  = dst_addr_q + {store_req_q[7:0], 2'b00};
