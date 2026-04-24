@@ -1,19 +1,19 @@
-// 256-point fixed-point FFT accelerator for the Croc SoC user domain.
+// 64-point fixed-point FFT accelerator for the Croc SoC user domain.
 //
 // Uses the pre-generated ZipCPU dblclockfft core (fftmain.v, LGPL v3).
-// Generated with: fftgen -f 256 -n 16 -1 -d rtl/user_domain/fft_core/
-//   IWIDTH = 16 (16 bits per component in), OWIDTH = 21 (21 bits per component out)
+// Generated with: fftgen -f 64 -n 16 -1 -d rtl/user_domain/fft_core/
+//   IWIDTH = 16 (16 bits per component in), OWIDTH = 20 (20 bits per component out)
 //
 // Register map (byte addresses relative to base, i.e. relative to UserBaseAddr = 0x2000_0000):
 //   +0x00  CTRL      [0]=START (self-clearing write-only)
 //   +0x04  STATUS    [0]=BUSY, [1]=DONE
-//   +0x08  SRC_ADDR  32-bit source address for 256 packed complex samples
-//   +0x0C  DST_ADDR  32-bit destination address for 256 packed FFT outputs
+//   +0x08  SRC_ADDR  32-bit source address for 64 packed complex samples
+//   +0x0C  DST_ADDR  32-bit destination address for 64 packed FFT outputs
 //   +0x10  IRQ_CTRL  [0]=irq_enable
 //
 // Data format: each 32-bit word = {real[15:0], imag[15:0]}
-//   Input : 256 words at SRC_ADDR  (1 KB)
-//   Output: 256 words at DST_ADDR  (1 KB), truncated from 21-bit to 16-bit per component
+//   Input : 64 words at SRC_ADDR  (256 bytes)
+//   Output: 64 words at DST_ADDR  (256 bytes), truncated from 20-bit to 16-bit per component
 //
 // OBI subordinate: control registers, always clocked on clk_i (not gated).
 // OBI manager    : DMA port — reads inputs from SRAM (FETCH), writes outputs to SRAM (STORE).
@@ -47,8 +47,8 @@ module dsp_obi_wrapper
   // FFT parameters — must match the generated fftmain.v
   // ---------------------------------------------------------------------------
   localparam int unsigned IWIDTH = 16;
-  localparam int unsigned OWIDTH = 21;
-  localparam int unsigned FFT_N  = 256;
+  localparam int unsigned OWIDTH = 20;
+  localparam int unsigned FFT_N  = 64;
 
   // ---------------------------------------------------------------------------
   // FSM states
@@ -56,14 +56,14 @@ module dsp_obi_wrapper
   typedef enum logic [2:0] {
     DSP_IDLE,       // waiting for START
     DSP_RST,        // one-cycle reset pulse to ZipCPU pipeline
-    DSP_FETCH,      // issue 256 OBI reads, feed samples into FFT
+    DSP_FETCH,      // issue 64 OBI reads, feed samples into FFT
     DSP_WAIT_SYNC,  // drain pipeline until o_sync fires
-    DSP_STORE       // issue 256 OBI writes with FFT output
+    DSP_STORE       // issue 64 OBI writes with FFT output
   } dsp_state_e;
 
   dsp_state_e state_q, state_d;
 
-  // Counters (9-bit to hold 0..256 inclusive)
+  // Counters: 9-bit, holding values 0..FFT_N (max 64, fits in 7 bits — 9 for safety)
   logic [8:0] fetch_req_q;   // OBI read requests issued
   logic [8:0] fetch_rsp_q;   // OBI read responses received
   logic [8:0] store_req_q;   // OBI write requests issued
@@ -158,9 +158,9 @@ module dsp_obi_wrapper
     unique case (state_q)
       DSP_IDLE:      if (start_pulse)                                          state_d = DSP_RST;
       DSP_RST:                                                                 state_d = DSP_FETCH;
-      DSP_FETCH:     if (fetch_rsp_q == 9'd(FFT_N-1) && obi_mgr_rsp_i.rvalid) state_d = DSP_WAIT_SYNC;
-      DSP_WAIT_SYNC: if (fft_sync)                                             state_d = DSP_STORE;
-      DSP_STORE:     if (store_rsp_q == 9'd(FFT_N-1) && obi_mgr_rsp_i.rvalid) state_d = DSP_IDLE;
+      DSP_FETCH:     if (fetch_rsp_q == (FFT_N-1) && obi_mgr_rsp_i.rvalid) state_d = DSP_WAIT_SYNC;
+      DSP_WAIT_SYNC: if (fft_sync)                                           state_d = DSP_STORE;
+      DSP_STORE:     if (store_rsp_q == (FFT_N-1) && obi_mgr_rsp_i.rvalid) state_d = DSP_IDLE;
       default:                                                                  state_d = DSP_IDLE;
     endcase
   end
@@ -196,10 +196,10 @@ module dsp_obi_wrapper
 
         DSP_FETCH: begin
           // Count accepted read requests
-          if (obi_mgr_rsp_i.gnt && (fetch_req_q < 9'd(FFT_N)))
+          if (obi_mgr_rsp_i.gnt && (fetch_req_q < FFT_N))
             fetch_req_q <= fetch_req_q + 9'd1;
           // Count read responses; each rvalid feeds one sample into FFT
-          if (obi_mgr_rsp_i.rvalid && (fetch_rsp_q < 9'd(FFT_N)))
+          if (obi_mgr_rsp_i.rvalid && (fetch_rsp_q < FFT_N))
             fetch_rsp_q <= fetch_rsp_q + 9'd1;
         end
 
@@ -207,13 +207,13 @@ module dsp_obi_wrapper
 
         DSP_STORE: begin
           // Count accepted write requests
-          if (obi_mgr_rsp_i.gnt && (store_req_q < 9'd(FFT_N)))
+          if (obi_mgr_rsp_i.gnt && (store_req_q < FFT_N))
             store_req_q <= store_req_q + 9'd1;
           // Count write acks
-          if (obi_mgr_rsp_i.rvalid && (store_rsp_q < 9'd(FFT_N)))
+          if (obi_mgr_rsp_i.rvalid && (store_rsp_q < FFT_N))
             store_rsp_q <= store_rsp_q + 9'd1;
           // Done when last write ack received
-          if (store_rsp_q == 9'd(FFT_N-1) && obi_mgr_rsp_i.rvalid) begin
+          if (store_rsp_q == (FFT_N-1) && obi_mgr_rsp_i.rvalid) begin
             busy_q <= 1'b0;
             done_q <= 1'b1;
           end
@@ -250,11 +250,12 @@ module dsp_obi_wrapper
 
   // Clock enable:
   //  - FETCH:      one ce per valid read response (one sample per rvalid)
-  //  - WAIT_SYNC:  always 1 (drain the pipeline towards o_sync)
+  //  - WAIT_SYNC:  always 1 to drain pipeline, but STOP on the cycle fft_sync fires
+  //                (that cycle fft_result already holds sample 0; don't advance it)
   //  - STORE:      gated by gnt — stall pipeline if write is back-pressured
-  assign fft_ce = ((state_q == DSP_FETCH)     &  obi_mgr_rsp_i.rvalid)
-                | ( state_q == DSP_WAIT_SYNC)
-                | ((state_q == DSP_STORE)      & (store_req_q < 9'd(FFT_N)) & obi_mgr_rsp_i.gnt);
+  assign fft_ce = ((state_q == DSP_FETCH)      &  obi_mgr_rsp_i.rvalid)
+                | ((state_q == DSP_WAIT_SYNC)   & !fft_sync)
+                | ((state_q == DSP_STORE)        & (store_req_q < FFT_N) & obi_mgr_rsp_i.gnt);
 
   // FFT input: packed {real[15:0], imag[15:0]} word read from SRAM
   assign fft_sample = (state_q == DSP_FETCH) ? obi_mgr_rsp_i.r.rdata : '0;
@@ -274,12 +275,12 @@ module dsp_obi_wrapper
   // ---------------------------------------------------------------------------
   // OBI Manager — DMA reads (FETCH) and writes (STORE)
   // ---------------------------------------------------------------------------
-  // Output truncation: OWIDTH=21 → 16 bits, keep the most significant bits.
-  //   o_result[41:21] = real[20:0],  top 16 bits = o_result[41:26]
-  //   o_result[20:0]  = imag[20:0],  top 16 bits = o_result[20:5]
-  //   wdata = {real[15:0], imag[15:0]} = {o_result[41:26], o_result[20:5]}
+  // Output truncation: OWIDTH=20 → 16 bits, keep the most significant bits.
+  //   o_result[39:20] = real[19:0],  top 16 bits = o_result[39:24]
+  //   o_result[19:0]  = imag[19:0],  top 16 bits = o_result[19:4]
+  //   wdata = {real[15:0], imag[15:0]} = {o_result[39:24], o_result[19:4]}
   logic [31:0] fft_result_truncated;
-  assign fft_result_truncated = {fft_result[41:26], fft_result[20:5]};
+  assign fft_result_truncated = {fft_result[39:24], fft_result[19:4]};
 
   always_comb begin
     obi_mgr_req_o         = '0;
@@ -287,7 +288,7 @@ module dsp_obi_wrapper
 
     unique case (state_q)
       DSP_FETCH: begin
-        if (fetch_req_q < 9'd(FFT_N)) begin
+        if (fetch_req_q < FFT_N) begin
           obi_mgr_req_o.req    = 1'b1;
           obi_mgr_req_o.a.we   = 1'b0;
           obi_mgr_req_o.a.addr = src_addr_q + {fetch_req_q[7:0], 2'b00};
@@ -295,7 +296,7 @@ module dsp_obi_wrapper
       end
 
       DSP_STORE: begin
-        if (store_req_q < 9'd(FFT_N)) begin
+        if (store_req_q < FFT_N) begin
           obi_mgr_req_o.req    = 1'b1;
           obi_mgr_req_o.a.we   = 1'b1;
           obi_mgr_req_o.a.addr  = dst_addr_q + {store_req_q[7:0], 2'b00};
