@@ -48,6 +48,18 @@ sources:
       - rtl/obi_timer/obi_timer.sv
       # Level 2
       - rtl/croc_domain.sv
+      # DSP FFT accelerator — ZipCPU fft_core (pre-generated) + OBI wrapper
+      - rtl/user_domain/fft_core/convround.v
+      - rtl/user_domain/fft_core/bimpy.v
+      - rtl/user_domain/fft_core/longbimpy.v
+      - rtl/user_domain/fft_core/butterfly.v
+      - rtl/user_domain/fft_core/hwbfly.v
+      - rtl/user_domain/fft_core/bitreverse.v
+      - rtl/user_domain/fft_core/qtrstage.v
+      - rtl/user_domain/fft_core/laststage.v
+      - rtl/user_domain/fft_core/fftstage.v
+      - rtl/user_domain/fft_core/fftmain.v
+      - rtl/user_domain/dsp_obi_wrapper.sv
       - rtl/user_domain.sv
       # add your design files with modules here
       # Level 3

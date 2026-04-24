@@ -24,15 +24,16 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
   output logic [NumExternalIrqs-1:0] interrupts_o    // interrupts to core
 );
 
-  assign interrupts_o = '0;
+  // interrupts_o[0]: FFT accelerator done interrupt
+  assign interrupts_o[NumExternalIrqs-1:1] = '0;
 
 
   //////////////////////
   // User Manager MUX //
   /////////////////////
 
-  // No manager so we don't need a obi_mux module and just terminate the request properly
-  assign user_mgr_obi_req_o = '0;
+  // DSP FFT accelerator is the sole manager — wire directly to the user manager port
+  // (no mux needed with a single manager)
 
 
   ////////////////////////////
@@ -107,21 +108,18 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
 // User Subordinates
 //-------------------------------------------------------------------------------------------------
 
-  ///////////////////////////////////
-  // Replace this with your Design //
-  ///////////////////////////////////
-  obi_err_sbr #(
-    .ObiCfg      ( SbrObiCfg     ),
-    .obi_req_t   ( sbr_obi_req_t ),
-    .obi_rsp_t   ( sbr_obi_rsp_t ),
-    .NumMaxTrans ( 1             ),
-    .RspData     ( 32'hBADCAB1E  )
-  ) i_your_design_goes_here (
+  ///////////////////////////////////////////
+  // DSP FFT Accelerator (256-pt ZipCPU)  //
+  ///////////////////////////////////////////
+  dsp_obi_wrapper i_dsp_fft (
     .clk_i,
     .rst_ni,
-    .testmode_i ( testmode_i          ),
-    .obi_req_i  ( user_design_obi_req ),
-    .obi_rsp_o  ( user_design_obi_rsp )
+    .testmode_i,
+    .obi_sbr_req_i ( user_design_obi_req   ),
+    .obi_sbr_rsp_o ( user_design_obi_rsp   ),
+    .obi_mgr_req_o ( user_mgr_obi_req_o    ),
+    .obi_mgr_rsp_i ( user_mgr_obi_rsp_i    ),
+    .irq_o         ( interrupts_o[0]        )
   );
 
   // Error Subordinate
