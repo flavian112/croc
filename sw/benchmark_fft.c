@@ -17,7 +17,7 @@
 #include "uart.h"
 #include "print.h"
 #include "util.h"
-#include "dsp.h"
+#include "fft.h"
 #include "config.h"
 
 #define FFT_N 16

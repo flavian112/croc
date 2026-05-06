@@ -374,16 +374,7 @@ if {[catch { vlog -incr -sv \
     "$ROOT/rtl/clint/clint.sv" \
     "$ROOT/rtl/obi_timer/obi_timer.sv" \
     "$ROOT/rtl/croc_domain.sv" \
-    "$ROOT/rtl/user_domain/fft_core/convround.v" \
-    "$ROOT/rtl/user_domain/fft_core/bimpy.v" \
-    "$ROOT/rtl/user_domain/fft_core/longbimpy.v" \
-    "$ROOT/rtl/user_domain/fft_core/butterfly.v" \
-    "$ROOT/rtl/user_domain/fft_core/hwbfly.v" \
-    "$ROOT/rtl/user_domain/fft_core/bitreverse.v" \
-    "$ROOT/rtl/user_domain/fft_core/qtrstage.v" \
-    "$ROOT/rtl/user_domain/fft_core/laststage.v" \
-    "$ROOT/rtl/user_domain/fft_core/fftstage.v" \
-    "$ROOT/rtl/user_domain/fft_core/fftmain.v" \
+    "$ROOT/rtl/user_domain/fft_core/fft_iterative.sv" \
     "$ROOT/rtl/user_domain/user_rom.sv" \
     "$ROOT/rtl/user_domain/dsp_obi_wrapper.sv" \
     "$ROOT/rtl/user_domain.sv" \

@@ -115,7 +115,7 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
 //-------------------------------------------------------------------------------------------------
 
   ///////////////////////////////////////////
-  // DSP FFT Accelerator (64-pt ZipCPU)   //
+  // DSP FFT Accelerator (16-point)        //
   ///////////////////////////////////////////
   dsp_obi_wrapper i_dsp_fft (
     .clk_i,

@@ -70,6 +70,7 @@ utl::report "Repair setup and hold violations..."
 # repair_timing -setup omitted: at 75% utilization global-route wire estimates produce
 # ~9600 apparent violations across CVE2 that exhaust CI memory. Post-detail-route
 # timing closes to WNS=0 without it (hold repair sufficient here).
+repair_timing -setup -verbose -repair_tns 100
 repair_timing -hold -hold_margin 0.1 -verbose -repair_tns 100
 
 utl::report "GRT incremental..."
