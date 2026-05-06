@@ -65,7 +65,7 @@ prepare_logo() {
     run_cmd "sed -i 's|#REPO#|gh.io/$GITHUB_REPOSITORY|g' meerkat_work/croc_logo.svg"
 
     run_cmd "inkscape meerkat_work/croc_logo.svg \
-        -w 660 \
+        -w 825 \
         -h 660 \
         -o meerkat_work/croc_logo.png \
         > /dev/null 2>&1"

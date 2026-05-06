@@ -6,17 +6,17 @@
         "file"        : "../meerkat_work/croc_chip.gds.gz",
         "x_offset_um" : -24,
         "y_offset_um" : -24,
-        "width_um"    : 2048,
+        "width_um"    : 2548,
         "height_um"   : 2048
     },
     "image": {
-        "px_width"          : 20480,
+        "px_width"          : 25600,
         "px_height"         : 20480,
         "overrender_factor" : 1,
         "num_segs_width"    : 5,
-        "num_segs_height"   : 5,
+        "num_segs_height"   : 4,
         "num_tiles_width"   : 5,
-        "num_tiles_height"  : 5
+        "num_tiles_height"  : 4
     },
     "paper": {
         "width_cm"  : 84.1,
@@ -80,4 +80,3 @@
         "dry_run"          : false
     }
 }
-
