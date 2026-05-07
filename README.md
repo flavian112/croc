@@ -1,248 +1,340 @@
-# Croc System-on-Chip
+# FFTodile
 
-A simple SoC for education using PULP IPs. Croc includes all scripts necessary to produce a nearly finished chip in [IHPs open-source 130nm technology](https://github.com/IHP-GmbH/IHP-Open-PDK/tree/main).
+FFTodile is a small FFT accelerator chip project built on top of the Croc
+educational SoC. The design uses a CVE2 RISC-V core, SRAM, a simple OBI
+interconnect, common SoC peripherals, and a custom user-domain FFT accelerator.
 
-As it is oriented towards education, it forgoes some configurability to increase readability of the RTL and scripts.
+The physical implementation targets the open-source IHP SG13G2 130 nm PDK. The
+repository contains the RTL, bare-metal software, simulation setup, synthesis,
+place-and-route, KLayout finishing scripts, and artistic mask-generation support
+used for the project.
 
-Croc is developed as part of the PULP project, a joint effort between ETH Zurich and the University of Bologna.
+## Project Status
 
-Croc was successfully taped out in Nov 2024 in the chip [MLEM](http://asic.ee.ethz.ch/2024/MLEM.html), named after the sound Yoshi makes when eating a tasty fruit. MLEM's core functionality was verified on real silicon early 2026.  
-MLEM was designed and prepared for tapeout by ETHZ students as a bachelor project. The exact code and scripts used for the tapeout can be seen in the frozen [mlem-tapeout](https://github.com/pulp-platform/croc/tree/mlem-tapeout) branch.
+Current user-domain contents:
+
+- `rtl/user_domain/fft/fft_obi.sv`: memory-mapped OBI register/DMA wrapper for the FFT accelerator
+- `rtl/user_domain/fft/fft_core.sv`: compact iterative fixed-point FFT core
+- `rtl/user_domain/user_rom.sv`: user ROM containing the chip ID string
+- `sw/lib/inc/fft.h`: bare-metal software API for the FFT accelerator
+- `sw/test/test_fft.c`: deterministic correctness tests
+- `sw/benchmark_fft.c`: software-vs-hardware benchmark
+
+The current FFT accelerator is a compile-time configured 16-point fixed-point
+FFT. Samples are packed as:
+
+```text
+sample[31:16] = signed 16-bit real component
+sample[15:0]  = signed 16-bit imaginary component
+```
+
+The hardware applies one arithmetic right shift per butterfly stage, so the
+16-point FFT output is scaled by `1/16` relative to an unscaled DFT.
 
 ## Architecture
 
+FFTodile keeps the original Croc split between the main SoC and the user domain.
+
 ![Croc block diagram](doc/croc_arch.svg)
 
-The SoC is composed of two main parts:
+Main blocks:
 
-- The `croc_domain` containing a CVE2 core (a more minimal fork of Ibex), SRAM, an OBI crossbar and a few simple peripherals
-- The `user_domain` where students are invited to add their own designs or other open-source designs (peripherals, accelerators...)
+- `croc_domain`: CVE2 core, SRAM banks, debug module, main OBI interconnect, and basic peripherals
+- `user_domain`: FFT accelerator, user ROM, and an error subordinate for unmapped accesses
+- `fft_obi`: FFT control/status register bank, source/destination DMA, and completion interrupt
+- `fft_core`: iterative radix-2 FFT datapath with local storage and one reused butterfly
 
-The main interconnect is OBI, you can find [the spec online](https://github.com/openhwgroup/obi/blob/072d9173c1f2d79471d6f2a10eae59ee387d4c6f/OBI-v1.6.0.pdf).
-
-The various IPs of the SoC (UART, OBI, debug-module, timer...) come from other PULP repositories and are managed by [Bender](https://github.com/pulp-platform/bender).
-To make it easier to browse and understand, only used or important building blocks are included in `rtl/<IP>`. You may want to explore the repositories of the respective IPs to find their documentation or additional functionality, the urls are in `Bender.yml`.
-
-## Configuration
-
-The main SoC configurations are in `rtl/croc_pkg.sv`:
-
-| Parameter           | Default          | Function                                              |
-|---------------------|------------------|-------------------------------------------------------|
-| `PulpJtagIdCode`    | `32'h1C0C_5DB3`  | Debug module ID code                                  |
-| `iDMAEnable`        | `0`              | Enable optional DMA (see `rtl/idma`)                  |
-| `NumSramBanks`      | `2`              | Number of memory banks                                |
-| `SramBankNumWords`  | `512`            | Number of 32bit words in a memory bank                |
-| `BootAddr`          | `32'h1000_0000`  | Default boot address set in 'soc_ctrl' register       |
-| `CrocAddrMap`       | see 'Memory Map' | Routing rules used for the main crossbar              |
-| `PeriphAddrMap`     | see 'Memory Map' | Routing rules used for the peripheral demuliplexer    |
-
-Further configurations can be made in `rtl/core_wrap.sv` (core specifics) and `rtl/croc_soc.sv` (connectivity between domains and to/from outside).
-
-The SRAMs are instantiated via a technology wrapper called `tc_sram_impl` (tc: tech_cells), the technology-independent implementation is in `rtl/tech_cells_generic/tc_sram_impl.sv`. A number of SRAM configurations are implemented using IHP130 SRAM memories in `ihp13/tc_sram_impl.sv`. If an unimplemented SRAM configuration is instantiated it will result in a `tc_sram_blackbox` module which can then be easily identified from the synthesis results.
-
-## Bootmodes
-
-Currently the only way to boot is via JTAG.
+The main interconnect protocol is OBI. The upstream OBI v1.6 specification is
+available from OpenHW Group.
 
 ## Memory Map
 
-If possible, the memory map should remain compatible with [Cheshire's memory map](https://pulp-platform.github.io/cheshire/um/arch/#memory-map).  
-Further each new subordinate should occupy multiples of 4KB of the address space (`32'h0000_1000`).
+The relevant default address ranges are:
 
-The address map of the default configuration is as follows:
+| Start Address | End Address | Description |
+| --- | --- | --- |
+| `0x0000_0000` | `0x0004_0000` | Debug module |
+| `0x0200_0000` | `0x0200_4000` | Boot ROM |
+| `0x0204_0000` | `0x0208_0000` | CLINT |
+| `0x0300_0000` | `0x0300_1000` | SoC control/info registers |
+| `0x0300_2000` | `0x0300_3000` | UART |
+| `0x0300_5000` | `0x0300_6000` | GPIO |
+| `0x0300_A000` | `0x0300_B000` | OBI timer |
+| `0x0300_B000` | `0x0300_C000` | Optional iDMA registers |
+| `0x1000_0000` | `+SRAM_SIZE` | SRAM banks |
+| `0x2000_0000` | `0x2000_1000` | User ROM |
+| `0x2000_1000` | `...` | FFT accelerator registers |
 
-| Start Address   | Stop Address    | Description                                |
-|-----------------|-----------------|--------------------------------------------|
-| `32'h0000_0000` | `32'h0004_0000` | Debug module (JTAG)                        |
-| `32'h0200_0000` | `32'h0200_4000` | Bootrom                                    |
-| `32'h0204_0000` | `32'h0208_0000` | CLINT peripheral                           |
-| `32'h0300_0000` | `32'h0300_1000` | SoC control/info registers                 |
-| `32'h0300_2000` | `32'h0300_3000` | UART peripheral                            |
-| `32'h0300_5000` | `32'h0300_6000` | GPIO peripheral                            |
-| `32'h0300_A000` | `32'h0300_B000` | Timer peripheral                           |
-| `32'h0300_B000` | `32'h0300_C000` | (optional) DMA configuration               |
-| `32'h1000_0000` | `+SRAM_SIZE`    | Memory banks (SRAM)                        |
-| `32'h2000_0000` | `32'h8000_0000` | Passthrough to user domain                 |
-| `32'h2000_0000` | `32'h2000_1000` | reserved for user ROM text*                |
+FFT accelerator register map, relative to `FFT_BASE_ADDR = 0x2000_1000`:
 
-*If people modify Croc we suggest they add a ROM at this address containing additional information
-like the names of the developers, a project link or similar. This can then be written out via UART.  
-We ask people to format the ROM like a C string with zero termination and using ASCII encoding if feasible.  
-The [MLEM user ROM](https://github.com/pulp-platform/croc/blob/mlem-tapeout/rtl/user_domain/user_rom.sv) may serve as one possible reference implementation.
+| Offset | Register | Description |
+| --- | --- | --- |
+| `0x00` | `CTRL` | bit 0 starts one FFT run |
+| `0x04` | `STATUS` | bit 0 busy, bit 1 done |
+| `0x08` | `SRC_ADDR` | source buffer address |
+| `0x0C` | `DST_ADDR` | destination buffer address |
+| `0x10` | `IRQ_CTRL` | bit 0 enables completion interrupt |
 
-## Flow
+The user ROM returns the null-terminated chip ID string:
+
+```text
+FFTodile REV 1.0 - Flavian Kaufmann, Thanu Kanagalingam
+```
+
+## Repository Layout
+
+```text
+rtl/                  SystemVerilog RTL
+rtl/user_domain/      FFTodile user-domain RTL
+sw/                   Bare-metal software, tests, and benchmark
+verilator/            Verilator simulation flow
+yosys/                Synthesis flow
+openroad/             Floorplan, placement, CTS, routing, finishing flow
+klayout/              DEF-to-GDS, seal ring, fill flow
+artistic/             GitHub Pages / mask-art rendering flow
+ihp13/                IHP SG13G2 technology integration and PDK submodule
+scripts/              Development-container, checks, and formatting helpers
+doc/                  Documentation images
+```
+
+## Tool Environment
+
+The intended development flow uses the `hpretl/iic-osic-tools:2025.12`
+container through the repository scripts. Start an interactive development shell
+with:
+
+```sh
+scripts/start_linux.sh
+```
+
+Inside that shell, use the top-level Makefile. The Docker container provides the
+RISC-V toolchain, Verilator, Yosys, OpenROAD, KLayout, Bender, and the other
+tools needed by the flow.
+
+The PDK is a git submodule under `ihp13/pdk` and is patched by `env.sh` during
+tool setup. If Git keeps reporting that submodule as dirty after the patch is
+applied, this local setting is useful:
+
+```sh
+git config submodule.ihp13/pdk.ignore dirty
+```
+
+## Common Commands
+
+Initialize submodules:
+
+```sh
+make init
+```
+
+Build all bare-metal software images:
+
+```sh
+make sw
+```
+
+Run the FFT correctness simulation:
+
+```sh
+make test-fft
+```
+
+Run the FFT benchmark simulation:
+
+```sh
+make bench-fft
+```
+
+Run a specific hex image in Verilator:
+
+```sh
+make sim BIN=sw/bin/test/test_fft.hex
+```
+
+Regenerate generated file lists:
+
+```sh
+make flist
+```
+
+Run synthesis:
+
+```sh
+make synth
+```
+
+Run the full OpenROAD backend after synthesis:
+
+```sh
+make backend
+```
+
+Generate and seal GDS:
+
+```sh
+make gds
+make seal
+```
+
+Run the usual clean ASIC flow through sealed GDS:
+
+```sh
+make flow
+```
+
+Remove generated outputs:
+
+```sh
+make clean
+```
+
+Use `make help` for the full target list.
+
+## Software Interface
+
+The FFT software API is in `sw/lib/inc/fft.h`.
+
+Typical use:
+
+```c
+#include "fft.h"
+
+static fft_sample_t input[FFT_N];
+static fft_sample_t output[FFT_N];
+
+input[0] = fft_pack(0x1000, 0);
+for (int i = 1; i < FFT_N; i++) {
+    input[i] = 0;
+}
+
+fft_run(input, output);
+```
+
+For test and benchmark reference calculations, `sw/lib/inc/fft_ref.h` contains a
+small fixed-point software model that mirrors the hardware arithmetic.
+
+## ASIC Flow
+
+The top-level flow wraps the lower-level scripts:
 
 ```mermaid
 graph LR;
   Bender-->Yosys;
-  Yosys-->OpenRoad;
-  OpenRoad-->KLayout;
+  Yosys-->OpenROAD;
+  OpenROAD-->KLayout;
 ```
 
-1. Bender provides a list of SystemVerilog files
-2. Yosys parses, elaborates, optimizes and maps the design to the technology cells
-3. The netlist, constraints and floorplan are loaded into OpenRoad for Place&Route
-4. The design as def is read by klayout and the geometry of the cells and macros are merged
+The main stages are:
 
-### Example Results
+1. Bender/file lists define the RTL compilation order.
+2. Yosys parses and maps RTL to the IHP SG13G2 standard-cell library.
+3. OpenROAD performs floorplan, placement, CTS, routing, and finishing.
+4. KLayout streams DEF to GDS, merges the seal ring, and can add fill.
 
-|Cell/Module placement                      |  Routing                             |
-|:-----------------------------------------:|:------------------------------------:|
-|![Chip module view](doc/croc_modules.jpg)  |  ![Chip routed](doc/croc_routed.jpg) |
+Current layout snapshots:
 
-## Requirements
+| Module Placement | Routed Design |
+| :---: | :---: |
+| ![FFTodile module placement](doc/fftodile_modules.jpg) | ![FFTodile routed design](doc/fftodile_routed.jpg) |
 
-We are using the excellent docker container maintained by Harald Pretl. If you get stuck with installing the tools, we urge you to check the [Tool Repository](https://github.com/iic-jku/IIC-OSIC-TOOLS).  
-The current supported version is 2025.12, no other version is officially supported.
-
-### ETHZ systems
-
-ETHZ Design Center maintains an internal version of the IHP PDK, with integrations into all tools we have access to. For this reason if you work on the ETH systems it is recommended to use the `icdesign` tool (cockpit) instead of the liked Github repo.  
-You can directly create a cockpit directory inside the croc directory:
+Useful stage targets:
 
 ```sh
-# Make sure you are in <somedir>/croc
-# the checked-out repository
-icdesign ihp13 -nogui
+make synth
+make floorplan
+make placement
+make cts
+make routing
+make finishing
+make backend
+make gds
+make seal
+make fill
 ```
 
-The setup is guided by the `.cockpitrc` configuration file. If you need different macros or another version of the standard cells you can change it accordingly.
-
-Yyou may prefer to just enter a shell in the pre-installed osic-tools container using:
+Generated outputs are intentionally not tracked. Use the clean targets when
+rerunning a stage from scratch:
 
 ```sh
-oseda bash
-# specific version eg: oseda -2025.12 bash
+make clean-synth
+make clean-backend
+make clean-gds
+make clean-flow
 ```
 
-### Other systems
+## Artistic Flow
 
-**Note: this has currently only been tested on Ubuntu and RHEL Linux.**
+The `artistic/` directory contains the rendering flow used for GitHub Pages and
+for previewing the top-metal artwork/map views. The artwork is for visualization
+and mask-art generation; it is separate from the functional RTL.
 
-#### Docker (easy)
+Typical local sequence, split by environment:
 
-There are two possible ways, the easiest way is to install docker and work in the docker container, you can follow the install guides on the [Docker Website](https://docs.docker.com/desktop/).  
-You do not need to manually download the container image, this will be done when running the script.
-If you do not have `git` installed on your system, you also need to install [Github Desktop](https://desktop.github.com/download/) and then clone this git repository.  
-
-It is a good idea to grant non-root (`sudo`) users access to docker, this is decribed in the [Docker Article](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
-
-Finally, you can navigate to this directory, open a terminal (PowerShell in Windows) and type:
+On the host, with Inkscape/ImageMagick available:
 
 ```sh
-# Linux only (starts and enters docker container in shell)
-scripts/start_linux.sh
-# Linux/Mac (starts VNC server on localhost:5901)
-scripts/start_vnc.sh
-# Windows (starts VNC server on localhost:5901)
-scripts/start_vnc.bat
+cd artistic
+./run_artistic.sh --prepare-logo
 ```
 
-If you use the VNC option, open a browser and type `localhost` in the address bar.
-This should connect you to the VNC server, the password is `abc123`, then test by right-clicking somewhere, starting the terminal and typing `ls`.  
-You should see the files in this repository again.
-
-Now you should be in an Ubuntu environment with all tools pre-installed for you.  
-If something does not work, refer to the upstream [IIC-OSIC-Tools](https://github.com/iic-jku/IIC-OSIC-TOOLS/tree/main).
-
-To stop the VNC server, run the start script again and then select between stopping or stop and remove the running docker container.
-
-#### Native install (hard)
-
-You need to build/install the required tools manually:
-
-- [Bender](https://github.com/pulp-platform/bender#installation): Dependency manager
-- [Yosys](https://github.com/YosysHQ/yosys#building-from-source): Synthesis tool
-- [Yosys-Slang](https://github.com/povik/yosys-slang): SystemVerilog frontend for Yosys
-- [OpenRoad](https://github.com/The-OpenROAD-Project/OpenROAD/blob/master/docs/user/Build.md): Place & Route tool
-- (Optional) [Verilator](https://github.com/verilator/verilator): Simulator
-- (Optional) Questasim/Modelsim: Simulator
-
-## Getting started
-
-The SoC is fully functional as-is and a simple software example is provided for simulation.
-To run the synthesis and place & route flow execute:
+In the OSIC/OSEDA container:
 
 ```sh
-git submodule update --init --recursive
-cd yosys && ./run_synthesis.sh --synth
-cd ../openroad && ./run_backend.sh --all
-cd ../klayout && ./run_finishing.sh --gds
+cd /fosic/designs/croc/artistic
+./run_artistic.sh --create-logo croc.sealed.gds.gz
+./run_artistic.sh --render-raw
+./run_artistic.sh --render-map-raw
 ```
 
-To simulate you can use:
+Back on the host:
 
 ```sh
-cd sw && make all
-cd ../verilator && ./run_verilator.sh --build --run ../sw/bin/helloworld.hex
+cd artistic
+./run_artistic.sh --render-pdf
+./run_artistic.sh --outline
+./run_artistic.sh --render-map-db
+cd mapify
+python3 -m http.server 8000
 ```
 
-If you have Questasim/Modelsim, you can also run:
+Then open `http://localhost:8000` to inspect the generated map tiles.
 
-```sh
-cd vsim && ./run_vsim.sh --build --run ../sw/bin/helloworld.hex
-```
+## Configuration Notes
 
-All `run_` scripts have a `--help` you can use to orient yourself.
+Main SoC configuration lives in `rtl/croc_pkg.sv`.
 
-There is also a top-level [Makefile](Makefile) that wraps the existing scripts:
+Important SRAM parameters:
 
-```sh
-make init
-make asic
-make sim
-```
+- `NumSramBanks = 2`
+- `SramBankNumWords = 512`
 
-Useful stage-level targets include `make synth`, `make backend`, `make gds`, `make seal`, `make fill`, `make flist`, and `make sim-vsim`.
-The Makefile is an orchestration layer only; it still relies on the same tool environment and underlying `run_*.sh` scripts.
+The physical IHP SRAM mapping is implemented through `ihp13/tc_sram_impl.sv`.
+The current `512 x 32` logical SRAM bank maps to an IHP SRAM macro through that
+technology wrapper.
 
-### Building on Croc
+User-domain address rules live in `rtl/user_pkg.sv`. The FFT accelerator is
+currently mapped into the `UserDesign` region starting at `0x2000_1000`.
 
-To add your own design, we recommend creating a new directory under `rtl/` or put single source files (small designs) into `rtl/user_domain`, then go into `Bender.yml` and add the files in the indicated places.
-This will make Bender aware of the files and any script it contains will contain your design as well.
+## Updating RTL Sources
 
-Then re-generate the default synthesis file-list:
+When adding, removing, or moving RTL files:
 
-```sh
-cd yosys && ./run_synthesis.sh --flist
-cd ../verilator && ./run_verilator.sh --flist
-```
+1. Update `Bender.yml`.
+2. Regenerate file lists with `make flist`, or update checked-in generated lists
+   deliberately if you are avoiding Bender in a given environment.
+3. Run at least `make test-fft`.
+4. For synthesis-impacting changes, also run `make synth`.
 
-If you want to add an existing design and it already containts a `Bender.yml` in its repository, you can add it as a dependency in the `Bender.yml` and reading the guide below.
+## Upstream Context
 
-## Bender
-
-The dependency manager [Bender](https://github.com/pulp-platform/bender) is used in most pulp-platform IPs.
-Usually each dependency would be in a seperate repository, each with a `Bender.yml` file to describe where the RTL files are, how you can use this dependency and which additional dependency it has.
-In the top level repository (like this SoC) you also have a `Bender.yml` file but you will commonly find a `Bender.lock` file. It contains the resolved tree of dependencies with specific commits for each. Whenever you run a command using Bender, this is the file it uses to figure out where things are.
-
-Below is a small guide aimed at the usecase for this project. The Bender repo has a more extensive [Command Guide](https://github.com/pulp-platform/bender?tab=readme-ov-file#commands).
-
-### Checkout
-
-Using the command `bender checkout` Bender will check the lock file and download the specified commits from the repositories (usually into a hidden `.bender` directory).
-
-### Update
-
-Running `bender update` on the other hand will resolve the entire tree again and re-generate the lock file (you usually have to resolve some version/revision conflicts if multiple things use the same dependency).
-
-**Remember:** always test everything again if you generate a new `Bender.lock`, it is the same as modifying RTL.
-
-### Local Versions
-
-For this repository, we use a subcommand called `bender vendor` together with the `vendor_package` section in `Bender.yml`.
-`bender vendor` can be used to Benderize arbitrary repositories with RTL in it. The dependencies are already 'checked out' into `rtl/<IP>`. Each file or directory from the repository is mapped to a local path in this repo.
-Fixes and changes to each IPs `rtl/<IP>/Bender.yml` are managed by `bender vendor` in `rtl/patches`.
-
-If you need to update a dependency or map another file you need to edit the coresponding `vendor_package` section in `Bender.yml` and then run `bender vendor init`. Then you might need to change `rtl/<IP>/Bender.yml` to list your new file in the sources. 
-To save a fix/change as a patch, stage it in git and then run `bender vendor patch`. When prompted, add a commit message (this is used as the patches file name). Finally, commit both the patch file and the new `rtl/<IP>`.
-
-**Note:** using `bender vendor` in this repository to change the local versions of the IPs requires an up-to-date version of Bender. (v0.28.2 or newer)
-### Targets
-
-Another thing we use are targets (in the `Bender.yml`), together they build different views/contexts of your RTL. For example without defining any targets the technology independent cells/memories are used (in `rtl/tech_cells_generic/`) but if we use the target `ihp13` then the same modules contain a technology-specific implementation (in `ihp13/`). Similar contexts are built for different simulators and other things.
+This repository is based on Croc, an educational SoC developed as part of the
+PULP project by ETH Zurich and the University of Bologna. Croc includes a small
+CVE2-based SoC and scripts for IHP SG13G2-based chip implementation. FFTodile
+keeps that infrastructure and replaces the generic user-design area with the FFT
+accelerator project.
 
 ## License
 
-Unless specified otherwise in the respective file headers, all code checked into this repository is made available under a permissive license. All hardware sources and tool scripts are licensed under the Solderpad Hardware License 0.51 (see `LICENSE.md`). All software sources are licensed under Apache 2.0.
+Unless specified otherwise in individual file headers, hardware sources and tool
+scripts are licensed under the Solderpad Hardware License 0.51. Software sources
+are licensed under Apache 2.0. See `LICENSE.md` and file headers for details.
