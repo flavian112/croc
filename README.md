@@ -235,7 +235,7 @@ Current layout snapshots:
 
 | Module Placement | Routed Design |
 | :---: | :---: |
-| ![FFTodile module placement](doc/fftodile_modules.jpg) | ![FFTodile routed design](doc/fftodile_routed.jpg) |
+| <img src="doc/fftodile_modules.jpg" alt="FFTodile module placement" width="420"> | <img src="doc/fftodile_routed.jpg" alt="FFTodile routed design" width="420"> |
 
 Useful stage targets:
 
