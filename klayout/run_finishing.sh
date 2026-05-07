@@ -103,10 +103,13 @@ gen_seal_ring() {
     run_cmd "seal_height=$(( $die_height + 2 * $SEAL_RING_SPACE ))"
     run_cmd "echo [INFO][KLayout] Read ../openroad/out/${PROJ_NAME}.def - die area: ${die_width} um x ${die_height} um"
     run_cmd "echo [INFO][KLayout] Chip dimensions with seal: ${seal_width} um x ${seal_height} um"
+    # IHP's sealring helper maps its CLI width argument to the PCell Y
+    # dimension and its height argument to the PCell X dimension.
+    # I.e. width and height are swapped.
     run_cmd "klayout -n sg13g2 -zz \
         -r $KLAYOUT_PATH/tech/scripts/sealring.py \
-        -rd width=$seal_width  \
-        -rd height=$seal_height \
+        -rd width=$seal_height  \
+        -rd height=$seal_width \
         -rd output=out/seal_ring.gds.gz \
         > out/gen_seal.log"
 }

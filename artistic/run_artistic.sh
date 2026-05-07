@@ -60,13 +60,14 @@ prepare_logo() {
 
     # customize logo
     run_cmd "mkdir -p meerkat_work"
-    run_cmd "sed 's/#DATE#/$(date '+%Y-%m-%d')/g' src/logo_chip.svg > meerkat_work/croc_logo.svg"
-    run_cmd "sed -i 's/#HASH#/$(git rev-parse --short HEAD)/g' meerkat_work/croc_logo.svg"
-    run_cmd "sed -i 's|#REPO#|gh.io/$GITHUB_REPOSITORY|g' meerkat_work/croc_logo.svg"
+    run_cmd "sed 's/#DATE#/$(date '+%Y-%m-%d')/g' src/logo_chip.svg \
+        | sed 's/#HASH#/$(git rev-parse --short HEAD)/g' \
+        | sed 's|#REPO#|gh.io/$GITHUB_REPOSITORY|g' \
+        > meerkat_work/croc_logo.svg"
 
     run_cmd "inkscape meerkat_work/croc_logo.svg \
-        -w 825 \
-        -h 660 \
+        -w 884 \
+        -h 632 \
         -o meerkat_work/croc_logo.png \
         > /dev/null 2>&1"
 
@@ -97,6 +98,7 @@ create_logo() {
 
     run_cmd "echo [INFO][Meerkat] Create logo"
     run_cmd "python3 artistic/scripts/meerkat.py \
+        -m 365.92,368.23 \
         -i meerkat_work/croc_logo.mono.png \
         -g meerkat_work/croc_tm.gds \
         -l 134 \
