@@ -186,7 +186,7 @@ static inline void fft_start(void) {
  */
 static inline void fft_wait_done(void) {
     while (!fft_done())
-    ;
+        ;
 }
 
 /**
