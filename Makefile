@@ -1,151 +1,210 @@
 SHELL := /bin/bash
 
+.DEFAULT_GOAL := help
+
+# -----------------------------------------------------------------------------
+# User configuration
+# -----------------------------------------------------------------------------
+
 PROJ_NAME  ?= croc
 TOP_DESIGN ?= croc_chip
 BIN        ?= sw/bin/helloworld.hex
 
-RUN_ENV := PROJ_NAME="$(PROJ_NAME)" TOP_DESIGN="$(TOP_DESIGN)"
+export PROJ_NAME
+export TOP_DESIGN
 
-.DEFAULT_GOAL := help
+RMDIR := rm -rf
 
-.PHONY: help init sw sim \
-        flist flist-yosys flist-verilator flist-vsim \
-        synth \
-        floorplan placement cts routing finishing backend \
-        gds seal fill \
-        flow clean-flow flow-clean \
-        clean clean-sw clean-sim clean-synth clean-backend clean-gds
+# -----------------------------------------------------------------------------
+# Tool entry points
+# -----------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------
+YOSYS      := cd yosys && ./run_synthesis.sh
+VERILATOR  := cd verilator && ./run_verilator.sh
+VSIM       := cd vsim && ./run_vsim.sh
+OPENROAD   := cd openroad && ./run_backend.sh
+KLAYOUT    := cd klayout && ./run_finishing.sh
+
+# -----------------------------------------------------------------------------
+# Phony targets
+# -----------------------------------------------------------------------------
+
+.PHONY: help init
+.PHONY: sw
+.PHONY: sim sim-build sim-run test-fft bench-fft
+.PHONY: flist flist-yosys flist-verilator flist-vsim
+.PHONY: synth
+.PHONY: floorplan placement cts routing finishing backend
+.PHONY: gds seal fill
+.PHONY: flow clean-flow flow-clean
+.PHONY: clean clean-sw clean-sim clean-synth clean-backend clean-gds
+
+# -----------------------------------------------------------------------------
 # Help
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 help:
 	@printf '%s\n' \
-	  'Usage: make <target>' \
-	  '' \
-	  'Setup' \
-	  '  init          Initialize git submodules' \
-	  '' \
-	  'Software' \
-	  '  sw            Build all SW images in sw/' \
-	  '  sim           Build SW + Verilator and run BIN=$(BIN)' \
-	  '' \
-	  'File lists (regenerate)' \
-	  '  flist         Yosys + Verilator + VSIM file lists' \
-	  '  flist-yosys   Yosys file list only' \
-	  '  flist-verilator Verilator file list only' \
-	  '  flist-vsim    VSIM file list only' \
-	  '' \
-	  'ASIC - individual steps' \
-	  '  synth         Yosys synthesis' \
-	  '  floorplan     OpenROAD stage 01 (floorplan + power grid)' \
-	  '  placement     OpenROAD stage 02 (placement)' \
-	  '  cts           OpenROAD stage 03 (clock tree)' \
-	  '  routing       OpenROAD stage 04 (routing)' \
-	  '  finishing     OpenROAD stage 05 (fill + outputs)' \
-	  '  backend       OpenROAD stages 01-05 (full P&R)' \
-	  '  gds           KLayout: DEF to GDS' \
-	  '  seal          KLayout: merge seal ring' \
-	  '  fill          KLayout: metal + active fill' \
-	  '' \
-	  'ASIC - full flows' \
-	  '  flow          Clean + synth + backend + gds + seal  (recommended)' \
-	  '  flow-clean    Alias for flow (clean is always done first)' \
-	  '' \
-	  'Clean' \
-	  '  clean         Remove all generated outputs' \
-	  '  clean-synth   Remove Yosys outputs only' \
-	  '  clean-backend Remove OpenROAD outputs only' \
-	  '  clean-gds     Remove KLayout outputs only' \
-	  '' \
-	  'Overrides: make <target> PROJ_NAME=croc TOP_DESIGN=croc_chip BIN=sw/bin/other.hex'
+		'Usage: make <target> [VARIABLE=value]' \
+		'' \
+		'Common variables:' \
+		'  PROJ_NAME   Project/output name        (default: croc)' \
+		'  TOP_DESIGN  Top-level RTL module       (default: croc_chip)' \
+		'  BIN         Hex image for simulation   (default: sw/bin/helloworld.hex)' \
+		'' \
+		'Setup:' \
+		'  init              Initialize git submodules' \
+		'' \
+		'Software and simulation:' \
+		'  sw                Build all software images in sw/' \
+		'  sim               Build software, build Verilator, and run BIN' \
+		'  test-fft          Simulate the FFT correctness test' \
+		'  bench-fft         Simulate the FFT benchmark' \
+		'  sim-build         Build the Verilator simulator only' \
+		'  sim-run           Run BIN on an already-built Verilator simulator' \
+		'' \
+		'File lists:' \
+		'  flist             Regenerate all generated file lists' \
+		'  flist-yosys       Regenerate yosys/src/croc.flist' \
+		'  flist-verilator   Regenerate verilator/croc.f' \
+		'  flist-vsim        Regenerate the Questa/VSIM file list' \
+		'' \
+		'ASIC flow:' \
+		'  synth             Run Yosys synthesis' \
+		'  floorplan         Run OpenROAD stage 01' \
+		'  placement         Run OpenROAD stage 02' \
+		'  cts               Run OpenROAD stage 03' \
+		'  routing           Run OpenROAD stage 04' \
+		'  finishing         Run OpenROAD stage 05' \
+		'  backend           Run all OpenROAD stages' \
+		'  gds               Convert routed DEF to GDS' \
+		'  seal              Generate and merge the seal ring' \
+		'  fill              Add metal and active fill' \
+		'  flow              Clean ASIC outputs, then run synth/backend/gds/seal' \
+		'' \
+		'Clean:' \
+		'  clean             Remove all generated outputs' \
+		'  clean-flow        Remove generated ASIC flow outputs' \
+		'  clean-sw          Remove software build outputs' \
+		'  clean-sim         Remove Verilator build/run outputs' \
+		'  clean-synth       Remove Yosys outputs' \
+		'  clean-backend     Remove OpenROAD outputs' \
+		'  clean-gds         Remove KLayout outputs' \
+		'' \
+		'Examples:' \
+		'  make test-fft' \
+		'  make sim BIN=sw/bin/test/test_fft.hex' \
+		'  make flow PROJ_NAME=croc TOP_DESIGN=croc_chip'
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Setup
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 init:
 	git submodule update --init --recursive
 
-# ------------------------------------------------------------------------------
-# Software
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Software and simulation
+# -----------------------------------------------------------------------------
+
 sw:
 	$(MAKE) -C sw all
 
-sim: sw
-	cd verilator && $(RUN_ENV) ./run_verilator.sh --build
-	cd verilator && $(RUN_ENV) ./run_verilator.sh --run ../$(BIN)
+sim: sw sim-build sim-run
 
-# ------------------------------------------------------------------------------
+sim-build:
+	$(VERILATOR) --build
+
+sim-run:
+	$(VERILATOR) --run ../$(BIN)
+
+test-fft: BIN := sw/bin/test/test_fft.hex
+test-fft: sim
+
+bench-fft: BIN := sw/bin/benchmark_fft.hex
+bench-fft: sim
+
+# -----------------------------------------------------------------------------
 # File lists
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 flist: flist-yosys flist-verilator flist-vsim
 
 flist-yosys:
-	cd yosys && $(RUN_ENV) ./run_synthesis.sh --flist
+	$(YOSYS) --flist
 
 flist-verilator:
-	cd verilator && $(RUN_ENV) ./run_verilator.sh --flist
+	$(VERILATOR) --flist
 
 flist-vsim:
-	cd vsim && $(RUN_ENV) ./run_vsim.sh --flist
+	$(VSIM) --flist
 
-# ------------------------------------------------------------------------------
-# ASIC - individual steps
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# ASIC flow
+# -----------------------------------------------------------------------------
+
 synth:
-	cd yosys && $(RUN_ENV) ./run_synthesis.sh --synth
+	$(YOSYS) --synth
 
 floorplan:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --floorplan
+	$(OPENROAD) --floorplan
 
 placement:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --placement
+	$(OPENROAD) --placement
 
 cts:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --cts
+	$(OPENROAD) --cts
 
 routing:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --routing
+	$(OPENROAD) --routing
 
 finishing:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --finishing
+	$(OPENROAD) --finishing
 
 backend:
-	cd openroad && $(RUN_ENV) ./run_backend.sh --all
+	$(OPENROAD) --all
 
 gds:
-	cd klayout && $(RUN_ENV) ./run_finishing.sh --gds
+	$(KLAYOUT) --gds
 
 seal:
-	cd klayout && $(RUN_ENV) ./run_finishing.sh --seal
+	$(KLAYOUT) --seal
 
 fill:
-	cd klayout && $(RUN_ENV) ./run_finishing.sh --fill
+	$(KLAYOUT) --fill
 
-# ------------------------------------------------------------------------------
-# ASIC - full flows
-# ------------------------------------------------------------------------------
-flow: clean-synth clean-backend clean-gds synth backend gds seal
+flow: clean-flow synth backend gds seal
 
 flow-clean: flow
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Clean
-# ------------------------------------------------------------------------------
-clean: clean-sw clean-sim clean-synth clean-backend clean-gds
+# -----------------------------------------------------------------------------
+
+clean: clean-sw clean-sim clean-flow
+
+clean-flow: clean-synth clean-backend clean-gds
 
 clean-sw:
 	$(MAKE) -C sw clean
 
 clean-sim:
-	rm -rf verilator/obj_dir verilator/*.log verilator/*.fst verilator/croc_build.log
+	$(RMDIR) verilator/obj_dir
+	$(RMDIR) verilator/*.log
+	$(RMDIR) verilator/*.fst
+	$(RMDIR) verilator/croc_build.log
 
 clean-synth:
-	rm -rf yosys/out yosys/reports yosys/tmp yosys/croc.log
+	$(RMDIR) yosys/out
+	$(RMDIR) yosys/reports
+	$(RMDIR) yosys/tmp
+	$(RMDIR) yosys/croc.log
 
 clean-backend:
-	rm -rf openroad/logs openroad/save openroad/reports openroad/out
+	$(RMDIR) openroad/logs
+	$(RMDIR) openroad/save
+	$(RMDIR) openroad/reports
+	$(RMDIR) openroad/out
 
 clean-gds:
-	rm -rf klayout/out
+	$(RMDIR) klayout/out
