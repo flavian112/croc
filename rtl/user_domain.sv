@@ -24,54 +24,33 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
   output logic [NumExternalIrqs-1:0] interrupts_o    // interrupts to core
 );
 
-  // interrupts_o[0]: FFT accelerator done interrupt
+  logic unused_inputs;
+  assign unused_inputs = ref_clk_i ^ ^gpio_in_sync_i;
+
   assign interrupts_o[NumExternalIrqs-1:1] = '0;
 
+  // ---------------------------------------------------------------------------
+  // User subordinate demux
+  // ---------------------------------------------------------------------------
 
-  //////////////////////
-  // User Manager MUX //
-  /////////////////////
-
-  // DSP FFT accelerator is the sole manager — wire directly to the user manager port
-  // (no mux needed with a single manager)
-
-
-  ////////////////////////////
-  // User Subordinate DEMUX //
-  ////////////////////////////
-
-  // ----------------------------------------------------------------------------------------------
-  // User Subordinate Buses
-  // ----------------------------------------------------------------------------------------------
-
-  // collection of signals from the demultiplexer
   sbr_obi_req_t [NumDemuxSbr-1:0] all_user_sbr_obi_req;
   sbr_obi_rsp_t [NumDemuxSbr-1:0] all_user_sbr_obi_rsp;
 
-  // Error Subordinate Bus
   sbr_obi_req_t user_error_obi_req;
   sbr_obi_rsp_t user_error_obi_rsp;
 
-  // OBI bus to your design
-  sbr_obi_req_t user_design_obi_req;
-  sbr_obi_rsp_t user_design_obi_rsp;
+  sbr_obi_req_t fft_sbr_obi_req;
+  sbr_obi_rsp_t fft_sbr_obi_rsp;
 
-  // User ROM Bus
   sbr_obi_req_t user_rom_obi_req;
   sbr_obi_rsp_t user_rom_obi_rsp;
 
-  // Fanout into more readable signals
-  assign user_error_obi_req               = all_user_sbr_obi_req[UserError];
-  assign all_user_sbr_obi_rsp[UserError]  = user_error_obi_rsp;
-  assign user_design_obi_req              = all_user_sbr_obi_req[UserDesign];
-  assign all_user_sbr_obi_rsp[UserDesign] = user_design_obi_rsp;
-  assign user_rom_obi_req                 = all_user_sbr_obi_req[UserRom];
-  assign all_user_sbr_obi_rsp[UserRom]    = user_rom_obi_rsp;
-
-
-  //-----------------------------------------------------------------------------------------------
-  // Demultiplex to User Subordinates according to address map
-  //-----------------------------------------------------------------------------------------------
+  assign user_error_obi_req              = all_user_sbr_obi_req[UserError];
+  assign all_user_sbr_obi_rsp[UserError] = user_error_obi_rsp;
+  assign fft_sbr_obi_req                 = all_user_sbr_obi_req[UserDesign];
+  assign all_user_sbr_obi_rsp[UserDesign] = fft_sbr_obi_rsp;
+  assign user_rom_obi_req                = all_user_sbr_obi_req[UserRom];
+  assign all_user_sbr_obi_rsp[UserRom]   = user_rom_obi_rsp;
 
   logic [cf_math_pkg::idx_width(NumDemuxSbr)-1:0] user_idx;
 
@@ -87,8 +66,8 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
     .idx_o            ( user_idx                  ),
     .dec_valid_o      (),
     .dec_error_o      (),
-    .en_default_idx_i ( 1'b1      ),
-    .default_idx_i    ( UserError )
+    .en_default_idx_i ( 1'b1                      ),
+    .default_idx_i    ( UserError                 )
   );
 
   obi_demux #(
@@ -109,28 +88,21 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
     .mgr_ports_rsp_i   ( all_user_sbr_obi_rsp )
   );
 
+  // ---------------------------------------------------------------------------
+  // User subordinates
+  // ---------------------------------------------------------------------------
 
-//-------------------------------------------------------------------------------------------------
-// User Subordinates
-//-------------------------------------------------------------------------------------------------
-
-  ///////////////////////////////////////////
-  // DSP FFT Accelerator (16-point)        //
-  ///////////////////////////////////////////
-  dsp_obi_wrapper i_dsp_fft (
+  fft_obi i_fft_obi (
     .clk_i,
     .rst_ni,
     .testmode_i,
-    .obi_sbr_req_i ( user_design_obi_req   ),
-    .obi_sbr_rsp_o ( user_design_obi_rsp   ),
+    .obi_sbr_req_i ( fft_sbr_obi_req       ),
+    .obi_sbr_rsp_o ( fft_sbr_obi_rsp       ),
     .obi_mgr_req_o ( user_mgr_obi_req_o    ),
     .obi_mgr_rsp_i ( user_mgr_obi_rsp_i    ),
     .irq_o         ( interrupts_o[0]        )
   );
 
-  ///////////////////////////////////////////
-  // User ROM                              //
-  ///////////////////////////////////////////
   user_rom i_user_rom (
     .clk_i,
     .rst_ni,
@@ -138,7 +110,6 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
     .obi_rsp_o ( user_rom_obi_rsp )
   );
 
-  // Error Subordinate
   obi_err_sbr #(
     .ObiCfg      ( SbrObiCfg     ),
     .obi_req_t   ( sbr_obi_req_t ),
