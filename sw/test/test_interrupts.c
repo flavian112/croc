@@ -55,7 +55,8 @@ int main() {
     set_global_irq_enable(1);
 
     // Wait for interrupt (with timeout)
-    for (volatile int i = 0; i < 10000 && !irq_fired; i++);
+    for (volatile int i = 0; i < 10000 && !irq_fired; i++)
+        ;
     CHECK_ASSERT(4, irq_fired == 1);
     CHECK_ASSERT(5, irq_cause == IRQ_OBI_TIMER);
 

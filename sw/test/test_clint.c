@@ -12,7 +12,8 @@
 int main() {
     // Read mtime and verify it advances
     uint64_t t1 = clint_get_mtime();
-    for (volatile int i = 0; i < 100; i++);
+    for (volatile int i = 0; i < 100; i++)
+        ;
     uint64_t t2 = clint_get_mtime();
     CHECK_ASSERT(1, t2 > t1);
 

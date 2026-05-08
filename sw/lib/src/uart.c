@@ -50,7 +50,8 @@ static inline int __uart_write_idle() {
 }
 
 void uart_write(uint8_t byte) {
-    while (!__uart_write_ready());
+    while (!__uart_write_ready())
+        ;
     *reg8(UART_BASE_ADDR, UART_THR_REG_OFFSET) = byte;
 }
 
@@ -59,11 +60,13 @@ void uart_write_str(void *src, uint32_t len) {
 }
 
 void uart_write_flush() {
-    while (!__uart_write_idle());
+    while (!__uart_write_idle())
+        ;
 }
 
 uint8_t uart_read() {
-    while (!uart_read_ready());
+    while (!uart_read_ready())
+        ;
     return *reg8(UART_BASE_ADDR, UART_RBR_REG_OFFSET);
 }
 

@@ -33,6 +33,8 @@ KLAYOUT    := cd klayout && ./run_finishing.sh
 
 .PHONY: help init
 .PHONY: sw
+.PHONY: format format-cxx format-python format-check format-check-cxx format-check-python
+.PHONY: format-cxx-ci format-check-cxx-ci
 .PHONY: sim sim-build sim-run test-fft bench-fft test-sram
 .PHONY: flist flist-yosys flist-verilator flist-vsim
 .PHONY: synth
@@ -60,6 +62,10 @@ help:
 		'' \
 		'Software and simulation:' \
 		'  sw                Build all software images in sw/' \
+		'  format            Apply C/C++ and Python formatting (sw + klayout/scripts)' \
+		'  format-check      Check C/C++ and Python formatting (CI-equivalent scope)' \
+		'  format-cxx-ci     Apply C/C++ formatting using clang-format-17 in Ubuntu container' \
+		'  format-check-cxx-ci Check C/C++ formatting using clang-format-17 in Ubuntu container' \
 		'  sim               Build software, build Verilator, and run BIN' \
 		'  test-fft          Simulate the FFT correctness test' \
 		'  test-sram         Simulate the SRAM address/data test' \
@@ -113,6 +119,9 @@ init:
 
 sw:
 	$(MAKE) -C sw all
+
+format-cxx:
+	docker run --rm -v $(CURDIR):/work ubuntu:24.04 bash -lc "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 clang-format-17 >/dev/null && cd /work && python3 scripts/run_clang_format.py -ir sw --extensions c,h,cpp --clang-format-executable=clang-format-17"
 
 sim: sw sim-build sim-run
 

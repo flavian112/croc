@@ -294,7 +294,8 @@ static inline void fft_start(void) {
  * @brief Busy-wait until the accelerator reports completion.
  */
 static inline void fft_wait_done(void) {
-    while (!fft_done());
+    while (!fft_done())
+        ;
 }
 
 /**

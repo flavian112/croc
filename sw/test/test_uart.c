@@ -34,7 +34,8 @@ int main() {
     uart_write(0xAB);
     uart_write_flush();
     // Small delay for loopback
-    for (volatile int i = 0; i < 100; i++);
+    for (volatile int i = 0; i < 100; i++)
+        ;
     if (uart_read_ready()) {
         uint8_t rx = uart_read();
         CHECK_ASSERT(4, rx == 0xAB);

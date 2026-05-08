@@ -68,7 +68,8 @@ uint32_t idma_memcpy(uint32_t dst, uint32_t src, uint32_t length) {
     idma_set_dst_addr(dst);
     idma_set_length(length);
     uint32_t id = idma_launch();
-    while (!idma_is_done(id));
+    while (!idma_is_done(id))
+        ;
     return id;
 }
 
@@ -82,6 +83,7 @@ uint32_t idma_memcpy_2d(uint32_t dst, uint32_t src, uint32_t length, uint32_t ds
     idma_set_src_stride(src_stride);
     idma_set_reps(reps);
     uint32_t id = idma_launch();
-    while (!idma_is_done(id));
+    while (!idma_is_done(id))
+        ;
     return id;
 }

@@ -36,7 +36,8 @@ int main() {
     obi_timer_set_enable(1);
 
     // Wait a bit for counter to advance
-    for (volatile int i = 0; i < 50; i++);
+    for (volatile int i = 0; i < 50; i++)
+        ;
 
     uint32_t cnt = obi_timer_get_count();
     CHECK_ASSERT(6, cnt > 0);
