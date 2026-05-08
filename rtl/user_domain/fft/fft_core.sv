@@ -19,7 +19,8 @@ module fft_core #(
   parameter bit          Inverse         = 1'b0,
   parameter int unsigned ScalingMode     = 1,
   parameter bit          BitReverseInput = 1'b1,
-  parameter bit          UseRounding     = 1'b0
+  parameter bit          UseRounding     = 1'b0,
+  parameter bit          UseSaturation   = 1'b0
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -135,6 +136,21 @@ module fft_core #(
     narrow = data_t'(value[DataWidth-1:0]);
   endfunction
 
+  function automatic data_t saturate(input logic signed [DataWidth:0] value);
+    // Detect overflow by checking if sign extension mismatches the result sign bit.
+    // If value[DataWidth:DataWidth-1] == 2'b01, positive overflow -> saturate to max (0x7FFF)
+    // If value[DataWidth:DataWidth-1] == 2'b10, negative overflow -> saturate to min (0x8000)
+    if (value[DataWidth] != value[DataWidth-1]) begin
+      if (value[DataWidth-1]) begin
+        saturate = data_t'({1'b1, {(DataWidth-1){1'b0}}}); // Min: 0x8000
+      end else begin
+        saturate = data_t'({1'b0, {(DataWidth-1){1'b1}}}); // Max: 0x7FFF
+      end
+    end else begin
+      saturate = data_t'(value[DataWidth-1:0]);
+    end
+  endfunction
+
   assign sample_ready_o = state_q == StateLoad;
   assign result_valid_o = state_q == StateUnload;
   assign busy_o         = state_q != StateIdle;
@@ -188,22 +204,43 @@ module fft_core #(
     if (ScalingMode == ScaleEachStage) begin : gen_scaled_butterfly
       if (UseRounding) begin : gen_rounded_butterfly
         // Round-to-nearest-even: add 1 before right-shift by 1
-        assign next_lower_real = narrow((sum_real + 1) >>> 1);
-        assign next_lower_imag = narrow((sum_imag + 1) >>> 1);
-        assign next_upper_real = narrow((diff_real + 1) >>> 1);
-        assign next_upper_imag = narrow((diff_imag + 1) >>> 1);
+        if (UseSaturation) begin : gen_rounded_saturated_butterfly
+          assign next_lower_real = saturate((sum_real + 1) >>> 1);
+          assign next_lower_imag = saturate((sum_imag + 1) >>> 1);
+          assign next_upper_real = saturate((diff_real + 1) >>> 1);
+          assign next_upper_imag = saturate((diff_imag + 1) >>> 1);
+        end else begin : gen_rounded_truncated_butterfly
+          assign next_lower_real = narrow((sum_real + 1) >>> 1);
+          assign next_lower_imag = narrow((sum_imag + 1) >>> 1);
+          assign next_upper_real = narrow((diff_real + 1) >>> 1);
+          assign next_upper_imag = narrow((diff_imag + 1) >>> 1);
+        end
       end else begin : gen_truncated_butterfly
         // Truncation: arithmetic right shift discards LSB
-        assign next_lower_real = narrow(sum_real >>> 1);
-        assign next_lower_imag = narrow(sum_imag >>> 1);
-        assign next_upper_real = narrow(diff_real >>> 1);
-        assign next_upper_imag = narrow(diff_imag >>> 1);
+        if (UseSaturation) begin : gen_truncated_saturated_butterfly
+          assign next_lower_real = saturate(sum_real >>> 1);
+          assign next_lower_imag = saturate(sum_imag >>> 1);
+          assign next_upper_real = saturate(diff_real >>> 1);
+          assign next_upper_imag = saturate(diff_imag >>> 1);
+        end else begin : gen_truncated_wrapped_butterfly
+          assign next_lower_real = narrow(sum_real >>> 1);
+          assign next_lower_imag = narrow(sum_imag >>> 1);
+          assign next_upper_real = narrow(diff_real >>> 1);
+          assign next_upper_imag = narrow(diff_imag >>> 1);
+        end
       end
     end else if (ScalingMode == ScaleNone) begin : gen_unscaled_butterfly
-      assign next_lower_real = narrow(sum_real);
-      assign next_lower_imag = narrow(sum_imag);
-      assign next_upper_real = narrow(diff_real);
-      assign next_upper_imag = narrow(diff_imag);
+      if (UseSaturation) begin : gen_unscaled_saturated_butterfly
+        assign next_lower_real = saturate(sum_real);
+        assign next_lower_imag = saturate(sum_imag);
+        assign next_upper_real = saturate(diff_real);
+        assign next_upper_imag = saturate(diff_imag);
+      end else begin : gen_unscaled_wrapped_butterfly
+        assign next_lower_real = narrow(sum_real);
+        assign next_lower_imag = narrow(sum_imag);
+        assign next_upper_real = narrow(diff_real);
+        assign next_upper_imag = narrow(diff_imag);
+      end
     end else begin : gen_invalid_scaling_mode
       assign next_lower_real = '0;
       assign next_lower_imag = '0;

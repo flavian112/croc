@@ -13,6 +13,11 @@
 // This requires the hardware to also be synthesized with UseRounding parameter
 // set to 1 on the fft_core instantiation (e.g., in top-level module parameters).
 // Default behavior (UseRounding=0) uses truncation.
+//
+// To test saturation behavior, compile with:
+//   CFLAGS="-DFFT_REF_USE_SATURATION=1" make test-fft
+// This requires the hardware to also be synthesized with UseSaturation parameter
+// set to 1 on the fft_core instantiation. Default behavior (UseSaturation=0) wraps.
 
 #include "uart.h"
 #include "util.h"
@@ -209,6 +214,38 @@ static int test_done_cleared_by_new_start(void) {
     return 0;
 }
 
+static int test_max_positive_inputs(void) {
+    // Test with maximum positive values that may trigger saturation during
+    // butterfly additions in early stages when saturation is enabled.
+    for (int index = 0; index < FFT_N; index++) {
+        input_buffer[index] = FFT_SAMPLE(32767, 32767);
+    }
+
+    return run_prepared_vector(3700, 1);
+}
+
+static int test_max_negative_inputs(void) {
+    // Test with maximum negative values.
+    for (int index = 0; index < FFT_N; index++) {
+        input_buffer[index] = FFT_SAMPLE(-32768, -32768);
+    }
+
+    return run_prepared_vector(3800, 1);
+}
+
+static int test_mixed_extreme_inputs(void) {
+    // Alternating max positive and max negative to stress addition/subtraction.
+    for (int index = 0; index < FFT_N; index++) {
+        if (index & 1) {
+            input_buffer[index] = FFT_SAMPLE(32767, -32768);
+        } else {
+            input_buffer[index] = FFT_SAMPLE(-32768, 32767);
+        }
+    }
+
+    return run_prepared_vector(3900, 1);
+}
+
 int main(void) {
     uart_init();
 
@@ -220,6 +257,9 @@ int main(void) {
     CHECK_CALL(test_pseudo_random_vectors());
     CHECK_CALL(test_edge_value_vector());
     CHECK_CALL(test_done_cleared_by_new_start());
+    CHECK_CALL(test_max_positive_inputs());
+    CHECK_CALL(test_max_negative_inputs());
+    CHECK_CALL(test_mixed_extreme_inputs());
 
     return 0;
 }

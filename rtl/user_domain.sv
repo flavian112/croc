@@ -11,7 +11,8 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
   parameter int unsigned FftLength = 16,
   parameter int unsigned FftDataWidth = 16,
   parameter int unsigned FftScalingMode = 1,
-  parameter bit          FftUseRounding = 1'b0
+  parameter bit          FftUseRounding = 1'b0,
+  parameter bit          FftUseSaturation = 1'b0
 ) (
   input  logic      clk_i,
   input  logic      ref_clk_i,
@@ -100,7 +101,8 @@ module user_domain import user_pkg::*; import croc_pkg::*; #(
     .FftLength   ( FftLength      ),
     .DataWidth   ( FftDataWidth   ),
     .ScalingMode ( FftScalingMode ),
-    .UseRounding ( FftUseRounding )
+    .UseRounding ( FftUseRounding ),
+    .UseSaturation ( FftUseSaturation )
   ) i_fft_obi (
     .clk_i,
     .rst_ni,

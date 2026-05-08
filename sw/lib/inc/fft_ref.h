@@ -21,10 +21,17 @@
  *
  * Set FFT_REF_USE_ROUNDING to enable rounded shifts (round-half-up).
  * Default is 0 (truncation).
+ *
+ * Set FFT_REF_USE_SATURATION to enable saturating arithmetic.
+ * Default is 0 (wraparound).
  */
 
 #ifndef FFT_REF_USE_ROUNDING
 #define FFT_REF_USE_ROUNDING 0
+#endif
+
+#ifndef FFT_REF_USE_SATURATION
+#define FFT_REF_USE_SATURATION 0
 #endif
 
 typedef struct {
@@ -79,6 +86,17 @@ static inline fft_sample_t fft_ref_butterfly_product(fft_sample_t sample, fft_re
     return fft_pack((int16_t)product_real, (int16_t)product_imag);
 }
 
+static inline int16_t fft_ref_saturate(int32_t value) {
+    // Saturate to signed 16-bit range: [-32768, 32767]
+    if (value > 32767) {
+        return 32767;
+    } else if (value < -32768) {
+        return -32768;
+    } else {
+        return (int16_t)value;
+    }
+}
+
 static inline int16_t fft_ref_scale_value(int32_t value, uint32_t scaling_mode) {
     if (scaling_mode == FFT_SCALE_EACH_STAGE) {
         if (FFT_REF_USE_ROUNDING) {
@@ -90,7 +108,11 @@ static inline int16_t fft_ref_scale_value(int32_t value, uint32_t scaling_mode) 
         }
     }
 
-    return (int16_t)value;
+    if (FFT_REF_USE_SATURATION) {
+        return fft_ref_saturate(value);
+    } else {
+        return (int16_t)value;
+    }
 }
 
 static inline void fft_ref_apply_stage(fft_sample_t samples[FFT_N], int half_span, uint32_t scaling_mode) {
