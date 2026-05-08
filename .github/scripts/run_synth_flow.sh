@@ -32,6 +32,10 @@ tail -n 40 reports/croc_area.rpt
 cd "$CROC_ROOT"
 
 echo ""
+echo "Extracting synthesis metrics (default config)..."
+"$SCRIPT_DIR/extract_synth_metrics.sh" yosys/reports/croc_area.rpt yosys/reports/croc_metrics.json
+
+echo ""
 echo "============================================="
 echo "Phase 2: iDMA enabled — synthesis (croc_idma)"
 echo "============================================="
@@ -46,6 +50,9 @@ echo ""
 tail -n 40 reports/croc_idma_area.rpt
 
 cd "$CROC_ROOT"
+
+echo "Extracting synthesis metrics (iDMA config)..."
+"$SCRIPT_DIR/extract_synth_metrics.sh" yosys/reports/croc_idma_area.rpt yosys/reports/croc_idma_metrics.json
 
 # Restore defaults
 "$SCRIPT_DIR/set_croc_config.sh"

@@ -1,0 +1,10 @@
+case,mode,runs,seed,visible_min,visible_median,visible_max,accelerator_min,accelerator_median,accelerator_max,overhead_min,overhead_median,overhead_max,bin0,bin_mid
+imp,sw,5,0x0,1FDB,1FDB,1FDB,0,0,0,0,0,0,0x1000000,0x1000000
+imp,hop,5,0x0,54,54,54,43,43,43,11,11,11,0x1000000,0x1000000
+imp,hip,5,0x0,54,54,54,43,43,43,11,11,11,0x1000000,0x1000000
+rnd1,sw,5,0x13579BDF,5D11,5D11,5D11,0,0,0,0,0,0,0xFF7BFFA5,0x11700B8
+rnd1,hop,5,0x13579BDF,54,54,54,43,43,43,11,11,11,0xFF7BFFA5,0x11700B8
+rnd1,hip,5,0x13579BDF,54,54,54,43,43,43,11,11,11,0xFF7BFFA5,0x11700B8
+rnd2,sw,5,0x2468ACE1,57CB,57CB,57CB,0,0,0,0,0,0,0xFEFFD8,0xFE90FD5E
+rnd2,hop,5,0x2468ACE1,54,54,54,43,43,43,11,11,11,0xFEFFD8,0xFE90FD5E
+rnd2,hip,5,0x2468ACE1,54,54,54,43,43,43,11,11,11,0xFEFFD8,0xFE90FD5E

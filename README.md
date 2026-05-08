@@ -178,13 +178,13 @@ make test-fft VERILATOR_FLAGS=-GFftScalingMode=0
 make clean-sim
 make test-fft \
   VERILATOR_FLAGS='-GFftInverse=1 -GFftUseRounding=1 -GFftUseSaturation=1' \
-  RISCV_CCFLAGS+=' -DFFT_REF_USE_INVERSE=1 -DFFT_REF_USE_ROUNDING=1 -DFFT_REF_USE_SATURATION=1'
+  RISCV_EXTRA_CCFLAGS='-DFFT_REF_USE_INVERSE=1 -DFFT_REF_USE_ROUNDING=1 -DFFT_REF_USE_SATURATION=1'
 
 # Example: 8-point FFT build with matching software expectations
 make clean-sim
 make test-fft \
   VERILATOR_FLAGS='-GFftLength=8' \
-  RISCV_CCFLAGS+=' -DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3'
+  RISCV_EXTRA_CCFLAGS='-DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3'
 ```
 
 The short CI flow runs a compact FFT matrix over representative build classes:
@@ -198,6 +198,11 @@ Run the FFT benchmark simulation:
 ```sh
 make bench-fft
 ```
+
+The benchmark now runs repeated deterministic cases and reports min/median/max
+cycle counts for software-visible runtime, accelerator runtime, and
+transfer/host overhead for hardware runs. It emits both human-readable summary
+lines and `BENCH_CSV,...` records that CI extracts into a CSV artifact.
 
 Run a specific hex image in Verilator:
 
@@ -402,7 +407,7 @@ currently mapped into the `UserDesign` region starting at `0x2000_1000`.
 
 For non-default FFT simulations, keep the Verilator parameter override and the
 software compile-time override aligned. For example, `VERILATOR_FLAGS='-GFftLength=8'`
-still needs matching `RISCV_CCFLAGS+=' -DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3'`.
+still needs matching `RISCV_EXTRA_CCFLAGS='-DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3'`.
 
 ## Updating RTL Sources
 

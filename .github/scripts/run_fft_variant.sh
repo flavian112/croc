@@ -23,7 +23,7 @@ echo "============================================="
 echo "FFT variant: $VARIANT_NAME"
 echo "============================================="
 echo "VERILATOR_FLAGS: ${VERILATOR_VARIANT_FLAGS:-<default>}"
-echo "RISCV_CCFLAGS append: ${RISCV_VARIANT_FLAGS:-<none>}"
+echo "RISCV_EXTRA_CCFLAGS: ${RISCV_VARIANT_FLAGS:-<none>}"
 
 make clean-sw clean-sim
 
@@ -32,16 +32,27 @@ if [[ -n "$VERILATOR_VARIANT_FLAGS" ]]; then
     make_args+=("VERILATOR_FLAGS=$VERILATOR_VARIANT_FLAGS")
 fi
 if [[ -n "$RISCV_VARIANT_FLAGS" ]]; then
-    make_args+=("RISCV_CCFLAGS+=$RISCV_VARIANT_FLAGS")
+    make_args+=("RISCV_EXTRA_CCFLAGS=$RISCV_VARIANT_FLAGS")
 fi
 
+sim_start=$(date +%s)
 make "${make_args[@]}"
+sim_end=$(date +%s)
+sim_runtime=$(( sim_end - sim_start ))
 
 cd verilator
 cp -f croc.log "fft-${VARIANT_NAME}.log"
 if [[ -f croc.fst ]]; then
     cp -f croc.fst "fft-${VARIANT_NAME}.fst"
 fi
+
+cat > "fft-${VARIANT_NAME}-metrics.json" <<METRICSEOF
+{
+  "variant": "${VARIANT_NAME}",
+  "sim_runtime_seconds": ${sim_runtime}
+}
+METRICSEOF
+echo "Variant metrics written to verilator/fft-${VARIANT_NAME}-metrics.json"
 
 echo ""
 echo "============================================="

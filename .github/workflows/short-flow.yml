@@ -109,6 +109,33 @@ jobs:
             verilator/croc.fst
             verilator/fft-${{ matrix.name }}.log
             verilator/fft-${{ matrix.name }}.fst
+            verilator/fft-${{ matrix.name }}-metrics.json
+
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Free disk space
+        uses: ./.github/actions/free-space
+      - name: Run FFT benchmark in OSEDA
+        uses: ./.github/actions/oseda-cmd
+        with:
+          cmd: ".github/scripts/run_benchmark.sh"
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-flow-benchmark
+          path: |
+            result.log
+            verilator/croc.log
+            verilator/fft_benchmark.log
+            verilator/fft_benchmark.csv
+            verilator/croc.fst
 
   synthesis:
     runs-on: ubuntu-latest

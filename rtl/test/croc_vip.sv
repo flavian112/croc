@@ -340,24 +340,27 @@ module croc_vip #(
   // Continually read characters and print lines
   // TODO: we should be able to support CR properly, but buffers are hard to deal with...
   byte_bt uart_read_buf[$];
+  bit uart_print_raw;
   initial begin
     byte_bt bite;
     @(posedge rst_no);
+    uart_print_raw = $test$plusargs("uart_raw");
     uart_read_buf.delete();
     forever begin
       uart_read_byte(bite);
-      if (bite == "\n" || uart_read_buf.size() > 80) begin
+      if (bite == "\n" || uart_read_buf.size() > 240) begin
         if (uart_read_buf.size() > 0) begin
           automatic string uart_str = "";
           foreach (uart_read_buf[i]) begin
             uart_str = {uart_str, uart_read_buf[i]};
           end
           $display("@%t | [UART] %s", $time, uart_str);
-          uart_read_buf.push_back(bite);
-          $display("@%t | [UART] raw: %p", $time, uart_read_buf);
-        end else begin
-          $display("@%t | [UART] ???", $time);
+          if (uart_print_raw) begin
+            uart_read_buf.push_back(bite);
+            $display("@%t | [UART] raw: %p", $time, uart_read_buf);
+          end
         end
+        // Empty lines (bare \n) are silently dropped to avoid ??? noise
         uart_read_buf.delete();
       end else begin
         uart_read_buf.push_back(bite);
