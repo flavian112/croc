@@ -54,6 +54,7 @@ runs:
     - name: Run commands in OSEDA container
       shell: bash
       run: |
+        set -euo pipefail
         # Avoid extra pulls now that we've already pulled
         docker compose up -d --pull=never
         docker compose exec -T "${{ env.service_name }}" \

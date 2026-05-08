@@ -5,6 +5,8 @@
 
 # Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
 
+set -euo pipefail
+
 LOG_FILE=$1
 
 expected_lines=(

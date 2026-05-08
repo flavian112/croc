@@ -6,6 +6,8 @@
 # Authors:
 # - Philippe Sauter <phsauter@iis.ee.ethz.ch>
 
+set -eu
+
 RUNDIR=${XDG_RUNTIME_DIR:-/tmp/runtime-$(id -u)}
 mkdir -p "$RUNDIR"
 

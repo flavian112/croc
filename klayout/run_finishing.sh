@@ -8,8 +8,7 @@
 
 # KLayout batch mode to create the sealring and metal fill
 
-set -e  # Exit on error
-set -u  # Error on undefined vars
+set -euo pipefail
 
 
 ################

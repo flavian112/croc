@@ -6,8 +6,7 @@
 # Authors:
 # - Thomas Benz <tbenz@iis.ee.ethz.ch>
 
-set -e  # Exit on error
-set -u  # Error on undefined vars
+set -euo pipefail
 
 
 ################

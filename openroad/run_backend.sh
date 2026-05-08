@@ -10,8 +10,7 @@
 # OpenROAD Backend Flow Script
 # Runs the complete backend flow or individual steps
 
-set -e  # Exit on error
-set -u  # Error on undefined vars
+set -euo pipefail
 
 ################
 # Setup
