@@ -48,7 +48,7 @@ static int test_byte_enables(void) {
     volatile uint32_t *word = (volatile uint32_t *)SRAM_BANK1_BASE;
     volatile uint8_t *byte  = (volatile uint8_t *)SRAM_BANK1_BASE;
 
-    *word = 0x11223344u;
+    *word                   = 0x11223344u;
     CHECK_ASSERT(100, *word == 0x11223344u);
 
     byte[0] = 0xAAu;
@@ -67,11 +67,11 @@ static int test_byte_enables(void) {
 }
 
 static int test_bank_boundary(void) {
-    volatile uint32_t *bank0_last = (volatile uint32_t *)SRAM_BANK0_LAST_WORD;
+    volatile uint32_t *bank0_last  = (volatile uint32_t *)SRAM_BANK0_LAST_WORD;
     volatile uint32_t *bank1_first = (volatile uint32_t *)SRAM_BANK1_BASE;
 
-    *bank0_last = 0x0BADB000u;
-    *bank1_first = 0x0BADB001u;
+    *bank0_last                    = 0x0BADB000u;
+    *bank1_first                   = 0x0BADB001u;
 
     CHECK_ASSERT(200, *bank0_last == 0x0BADB000u);
     CHECK_ASSERT(201, *bank1_first == 0x0BADB001u);

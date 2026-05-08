@@ -49,7 +49,7 @@ enum {
  * @brief Compile-time FFT scaling modes reported by the CONFIG register.
  */
 enum {
-    FFT_SCALE_NONE = 0,
+    FFT_SCALE_NONE       = 0,
     FFT_SCALE_EACH_STAGE = 1,
 };
 
@@ -64,7 +64,7 @@ typedef uint32_t fft_sample_t;
  * Arguments are narrowed to int16_t before packing. This is intentional and
  * matches the hardware register/memory format.
  */
-#define FFT_SAMPLE(real, imag) ((((uint32_t)(uint16_t)(int16_t)(real)) << 16) | ((uint16_t)(int16_t)(imag)))
+#define FFT_SAMPLE(real, imag)      ((((uint32_t)(uint16_t)(int16_t)(real)) << 16) | ((uint16_t)(int16_t)(imag)))
 
 /**
  * @name Register offsets
@@ -72,43 +72,43 @@ typedef uint32_t fft_sample_t;
  * Offsets are relative to FFT_BASE_ADDR.
  */
 /** @{ */
-#define FFT_CTRL_OFFSET        0x00
-#define FFT_STATUS_OFFSET      0x04
-#define FFT_SRC_ADDR_OFFSET    0x08
-#define FFT_DST_ADDR_OFFSET    0x0C
-#define FFT_IRQ_CTRL_OFFSET    0x10
-#define FFT_CONFIG_OFFSET      0x14
-#define FFT_CYCLES_OFFSET      0x18
+#define FFT_CTRL_OFFSET             0x00
+#define FFT_STATUS_OFFSET           0x04
+#define FFT_SRC_ADDR_OFFSET         0x08
+#define FFT_DST_ADDR_OFFSET         0x0C
+#define FFT_IRQ_CTRL_OFFSET         0x10
+#define FFT_CONFIG_OFFSET           0x14
+#define FFT_CYCLES_OFFSET           0x18
 /** @} */
 
 /**
  * @name CTRL register bits
  */
 /** @{ */
-#define FFT_CTRL_START_BIT     0
+#define FFT_CTRL_START_BIT          0
 /** @} */
 
 /**
  * @name STATUS register bits
  */
 /** @{ */
-#define FFT_STATUS_BUSY_BIT    0
-#define FFT_STATUS_DONE_BIT    1
+#define FFT_STATUS_BUSY_BIT         0
+#define FFT_STATUS_DONE_BIT         1
 /** @} */
 
 /**
  * @name CONFIG register fields
  */
 /** @{ */
-#define FFT_CONFIG_LENGTH_MASK       0x000000FFu
-#define FFT_CONFIG_LOG2_SHIFT        8
-#define FFT_CONFIG_LOG2_MASK         0x00000F00u
-#define FFT_CONFIG_DATA_WIDTH_SHIFT  16
-#define FFT_CONFIG_DATA_WIDTH_MASK   0x00FF0000u
-#define FFT_CONFIG_INVERSE_BIT       24
-#define FFT_CONFIG_SCALE_MODE_SHIFT  25
-#define FFT_CONFIG_SCALE_MODE_MASK   0x06000000u
-#define FFT_CONFIG_BIT_REVERSE_BIT   27
+#define FFT_CONFIG_LENGTH_MASK      0x000000FFu
+#define FFT_CONFIG_LOG2_SHIFT       8
+#define FFT_CONFIG_LOG2_MASK        0x00000F00u
+#define FFT_CONFIG_DATA_WIDTH_SHIFT 16
+#define FFT_CONFIG_DATA_WIDTH_MASK  0x00FF0000u
+#define FFT_CONFIG_INVERSE_BIT      24
+#define FFT_CONFIG_SCALE_MODE_SHIFT 25
+#define FFT_CONFIG_SCALE_MODE_MASK  0x06000000u
+#define FFT_CONFIG_BIT_REVERSE_BIT  27
 /** @} */
 
 /**

@@ -164,13 +164,12 @@ static int test_pseudo_random_vectors(void) {
 
     for (int vector = 0; vector < 4; vector++) {
         for (int index = 0; index < FFT_N; index++) {
-            uint32_t real = xorshift32(&state);
-            uint32_t imag = xorshift32(&state);
+            uint32_t real       = xorshift32(&state);
+            uint32_t imag       = xorshift32(&state);
 
             // Keep amplitudes moderate so today's wraparound arithmetic is not
             // the main thing under test; saturation experiments come later.
-            input_buffer[index] = fft_pack((int16_t)((real & 0x0FFFu) - 2048),
-                                           (int16_t)((imag & 0x0FFFu) - 2048));
+            input_buffer[index] = fft_pack((int16_t)((real & 0x0FFFu) - 2048), (int16_t)((imag & 0x0FFFu) - 2048));
         }
 
         CHECK_CALL(run_prepared_vector(3000 + 100 * vector, 1));

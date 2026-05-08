@@ -93,10 +93,10 @@ static inline void fft_ref_apply_stage(fft_sample_t samples[FFT_N], int half_spa
             fft_sample_t upper =
                 fft_ref_butterfly_product(samples[upper_index], fft_ref_twiddles[offset * twiddle_stride]);
 
-            int16_t lower_real = fft_real(lower);
-            int16_t lower_imag = fft_imag(lower);
-            int16_t upper_real = fft_real(upper);
-            int16_t upper_imag = fft_imag(upper);
+            int16_t lower_real   = fft_real(lower);
+            int16_t lower_imag   = fft_imag(lower);
+            int16_t upper_real   = fft_real(upper);
+            int16_t upper_imag   = fft_imag(upper);
 
             samples[lower_index] = fft_pack(fft_ref_scale_value(lower_real + upper_real, scaling_mode),
                                             fft_ref_scale_value(lower_imag + upper_imag, scaling_mode));
