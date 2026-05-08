@@ -238,6 +238,20 @@ make clean
 
 Use `make help` for the full target list.
 
+## Local Checks
+
+Check Python and C/C++ formatting:
+
+```sh
+make lint
+```
+
+Apply formatting fixes:
+
+```sh
+make lint-fix
+```
+
 ## Software Interface
 
 The FFT software API is in `sw/lib/inc/fft.h`.
