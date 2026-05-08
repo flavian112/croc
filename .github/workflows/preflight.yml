@@ -1,0 +1,84 @@
+# Copyright (c) 2025 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Preflight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
+
+concurrency:
+  group: preflight-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Check Python with black
+        uses: rickstaa/action-black@v1
+        with:
+          black_args: "klayout/scripts --check"
+
+  lint-cxx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run clang-format
+        uses: DoozyX/clang-format-lint-action@v0.18.2
+        with:
+          source: 'sw'
+          extensions: 'c,h,cpp'
+          clangFormatVersion: 17
+
+  generated-file-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Verify config toggles restore tracked sources cleanly
+        shell: bash
+        run: |
+          set -euo pipefail
+          .github/scripts/set_croc_config.sh iDMAEnable=1
+          .github/scripts/set_croc_config.sh
+          git diff --exit-code -- rtl/croc_pkg.sv
+
+  smoke-sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Free disk space
+        uses: ./.github/actions/free-space
+      - name: Run preflight smoke simulation in OSEDA
+        uses: ./.github/actions/oseda-cmd
+        with:
+          cmd: ".github/scripts/run_preflight.sh"
+      - name: Upload preflight logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-smoke-logs
+          path: |
+            result.log
+            verilator/croc.log
+            verilator/croc.fst

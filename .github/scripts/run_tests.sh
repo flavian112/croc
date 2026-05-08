@@ -1,9 +1,9 @@
+#!/bin/bash
 # Copyright (c) 2026 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Authors:
-# - Philippe Sauter <phsauter@iis.ee.ethz.ch>
+
+# Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
 
 # Run unit tests through Verilator simulation.
 # Usage: run_tests.sh [--sim SIM_BINARY] [--hexdir HEX_DIR] [--filter PATTERN][--timeout SECONDS]

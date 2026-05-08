@@ -2,10 +2,9 @@
 # Copyright (c) 2026 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Authors:
-# - Philippe Sauter <phsauter@iis.ee.ethz.ch>
-#
+
+# Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
+
 # Two-phase Verilator simulation flow:
 #   Phase 1 (default): Build software, build Verilator model, run helloworld
 #   Phase 2 (iDMA on): Enable iDMA, build Verilator model, run all unit tests

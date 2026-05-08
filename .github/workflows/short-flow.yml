@@ -3,13 +3,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
+# Author:  Thomas Benz <tbenz@iis.ee.ethz.ch>
 
 name: Short Flow
 
 on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
   push:
     branches:
-      - '**'
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
+
+concurrency:
+  group: short-flow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   simulation:
@@ -29,22 +44,22 @@ jobs:
       - name: Upload built software
         uses: actions/upload-artifact@v4
         with:
-          name: croc-sw
+          name: short-flow-sw
           path: sw/bin
       - name: Upload simulation output
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: simulation-output
+          name: short-flow-simulation-output
           path: |
             verilator/croc.fst
             verilator/croc.log
-        continue-on-error: true
       - name: Upload test logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-logs
+          name: short-flow-test-logs
           path: verilator/test_*.log
-        continue-on-error: true
 
   synthesis:
     runs-on: ubuntu-latest
@@ -61,10 +76,10 @@ jobs:
         with:
           cmd: ".github/scripts/run_synth_flow.sh"
       - name: Upload synthesis outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: croc-synth-reports
+          name: short-flow-synth-reports
           path: |
             yosys/reports
             yosys/out
-        continue-on-error: true

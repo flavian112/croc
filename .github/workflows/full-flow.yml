@@ -10,12 +10,24 @@ name: Full Flow
 on:
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'artistic/**'
+      - 'doc/**'
   release:
     types:
       - created
+
+concurrency:
+  group: full-flow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -33,22 +45,22 @@ jobs:
         with:
           cmd: ".github/scripts/run_full_flow.sh"
       - name: Upload openroad outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: croc-openroad-out
+          name: full-flow-openroad-out
           path: |
             openroad/out
             openroad/logs
             openroad/reports
-        continue-on-error: true
       - name: Upload gds
         uses: actions/upload-artifact@v4
         with:
-          name: croc-gds
+          name: full-flow-gds
           path: klayout/out/croc.gds.gz
       - name: Upload sealed gds
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: croc-gds-sealed
+          name: full-flow-gds-sealed
           path: klayout/out/croc.sealed.gds.gz
-        continue-on-error: true

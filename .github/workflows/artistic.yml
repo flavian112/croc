@@ -8,20 +8,28 @@
 name: ArtistIC Render
 
 on:
-    workflow_dispatch:
-    workflow_run:
-      workflows: ["Full Flow"]
-      types: [completed]
-      branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Full Flow"]
+    types: [completed]
+    branches: [main]
+  push:
+    branches:
+      - main
+    paths:
+      - 'artistic/**'
 
 jobs:
   artistic:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      github.event.workflow_run.conclusion == 'success' ||
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     timeout-minutes: 60
     permissions:
       pages: write
       id-token: write
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -34,22 +42,42 @@ jobs:
           submodules: recursive
       - name: Free disk space
         uses: ./.github/actions/free-space
+
+      # Find latest successful Full Flow run if triggered by push or workflow_dispatch
+      - name: Find latest successful Full Flow run
+        if: ${{ github.event_name != 'workflow_run' }}
+        id: find-run
+        shell: bash
+        run: |
+          LATEST_RUN_ID=$(curl -s \
+            -H "Authorization: token ${{ github.token }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/full-flow.yml/runs?branch=main&status=completed&conclusion=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id')
+          
+          if [ -z "$LATEST_RUN_ID" ] || [ "$LATEST_RUN_ID" = "null" ]; then
+            echo "Error: No successful Full Flow run found"
+            exit 1
+          fi
+          
+          echo "run-id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
+      
       # Restore previous artifacts (GDS and DEF)
       - name: Download GDS artifact from "Full Flow" workflow
         uses: actions/download-artifact@v4
         with:
-          name: croc-gds-sealed
+          name: full-flow-gds-sealed
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id || steps.find-run.outputs.run-id }}
           path: klayout/out
       - name: Download DEF artifact from "Full Flow" workflow
         uses: actions/download-artifact@v4
         with:
-          name: croc-openroad-out
+          name: full-flow-openroad-out
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id || steps.find-run.outputs.run-id }}
           path: openroad
 
       # Install dependencies
