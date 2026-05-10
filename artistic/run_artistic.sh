@@ -132,8 +132,20 @@ finish_render() {
 
 gen_outline() {
     run_cmd "echo [INFO][OutlineGen] Generate module outlines"
+
+    local def_file="../openroad/out/${PROJ_NAME}.def"
+    local alt_def_file="../openroad/openroad/out/${PROJ_NAME}.def"
+    if [[ ! -f "$def_file" && -f "$alt_def_file" ]]; then
+        def_file="$alt_def_file"
+    fi
+
+    if [[ ! -f "$def_file" ]]; then
+        echo "[ERROR][OutlineGen] DEF file not found. Checked: ${def_file} and ${alt_def_file}" >&2
+        return 1
+    fi
+
     run_cmd "python3 artistic/scripts/gen_outline.py \
-    -i ../openroad/out/${PROJ_NAME}.def \
+    -i ${def_file} \
     -o renderics/croc_modules.svg \
     -b renderics/croc_render.jpg \
     --lef_files ${PDK_DIR_LEF_SRAMS}/*.lef \

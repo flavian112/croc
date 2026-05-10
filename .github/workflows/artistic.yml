@@ -85,6 +85,27 @@ jobs:
           run-id: ${{ github.event.workflow_run.id || steps.find-run.outputs.run-id }}
           path: openroad
 
+      - name: Normalize OpenROAD artifact layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Depending on artifact extraction, files may land under openroad/openroad/*.
+          if [[ -d openroad/openroad/out && ! -d openroad/out ]]; then
+            mv openroad/openroad/out openroad/out
+          fi
+          if [[ -d openroad/openroad/logs && ! -d openroad/logs ]]; then
+            mv openroad/openroad/logs openroad/logs
+          fi
+          if [[ -d openroad/openroad/reports && ! -d openroad/reports ]]; then
+            mv openroad/openroad/reports openroad/reports
+          fi
+
+          if [[ ! -f openroad/out/croc.def ]]; then
+            echo "Missing expected DEF file: openroad/out/croc.def" >&2
+            find openroad -maxdepth 4 -type f | sort >&2 || true
+            exit 1
+          fi
+
       - name: Install host rendering tools
         shell: bash
         run: |
