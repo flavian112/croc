@@ -69,19 +69,19 @@ jobs:
         include:
           - name: default
             verilator_flags: ''
-            riscv_ccflags: ''
+            riscv_extra_ccflags: ''
           - name: length8
             verilator_flags: -GFftLength=8
-            riscv_ccflags: -DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3
+            riscv_extra_ccflags: -DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3
           - name: scale-none
             verilator_flags: -GFftScalingMode=0
-            riscv_ccflags: ''
+            riscv_extra_ccflags: ''
           - name: inverse
             verilator_flags: -GFftInverse=1
-            riscv_ccflags: -DFFT_REF_USE_INVERSE=1
+            riscv_extra_ccflags: -DFFT_REF_USE_INVERSE=1
           - name: rounding-saturation
             verilator_flags: -GFftUseRounding=1 -GFftUseSaturation=1
-            riscv_ccflags: -DFFT_REF_USE_ROUNDING=1 -DFFT_REF_USE_SATURATION=1
+            riscv_extra_ccflags: -DFFT_REF_USE_ROUNDING=1 -DFFT_REF_USE_SATURATION=1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -99,7 +99,7 @@ jobs:
             .github/scripts/run_fft_variant.sh
             '${{ matrix.name }}'
             '${{ matrix.verilator_flags }}'
-            '${{ matrix.riscv_ccflags }}'
+            '${{ matrix.riscv_extra_ccflags }}'
 
       - name: Check FFT variant metrics
         shell: bash

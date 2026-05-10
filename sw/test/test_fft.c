@@ -10,20 +10,20 @@
 //
 // To test rounding behavior, run with:
 //   make test-fft \
-//     RISCV_CCFLAGS+=' -DFFT_REF_USE_ROUNDING=1' \
+//     RISCV_EXTRA_CCFLAGS='-DFFT_REF_USE_ROUNDING=1' \
 //     VERILATOR_FLAGS='-GFftUseRounding=1'
 // This requires hardware and reference-model options to match.
 // Default behavior (UseRounding=0) uses truncation.
 //
 // To test saturation behavior, run with:
 //   make test-fft \
-//     RISCV_CCFLAGS+=' -DFFT_REF_USE_SATURATION=1' \
+//     RISCV_EXTRA_CCFLAGS='-DFFT_REF_USE_SATURATION=1' \
 //     VERILATOR_FLAGS='-GFftUseSaturation=1'
 // Default behavior (UseSaturation=0) wraps.
 //
 // To test inverse FFT behavior, run with:
 //   make test-fft \
-//     RISCV_CCFLAGS+=' -DFFT_REF_USE_INVERSE=1' \
+//     RISCV_EXTRA_CCFLAGS='-DFFT_REF_USE_INVERSE=1' \
 //     VERILATOR_FLAGS='-GFftInverse=1'
 // Default behavior (Inverse=0) computes forward FFT.
 
@@ -39,6 +39,7 @@ enum {
 
 static volatile fft_sample_t input_buffer[FFT_N];
 static volatile fft_sample_t output_buffer[FFT_N];
+static volatile fft_sample_t in_place_buffer[FFT_N];
 static fft_sample_t expected_buffer[FFT_N];
 
 static void clear_input_buffer(void) {
@@ -74,28 +75,54 @@ static int test_register_readback(void) {
     CHECK_ASSERT(7, fft_config_scale_stages() == (scale_mode == FFT_SCALE_EACH_STAGE));
     CHECK_ASSERT(8, fft_config_bit_reverse());
 
+    uint32_t config = fft_config();
+    uint32_t cycles = fft_cycles();
+    fft_write_reg(FFT_CONFIG_OFFSET, ~config);
+    fft_write_reg(FFT_CYCLES_OFFSET, 0xDEADBEEFu);
+    CHECK_ASSERT(9, fft_config() == config);
+    CHECK_ASSERT(10, fft_cycles() == cycles);
+
     fft_write_reg(FFT_SRC_ADDR_OFFSET, FFT_TEST_SRC_ADDR);
-    CHECK_ASSERT(10, fft_read_reg(FFT_SRC_ADDR_OFFSET) == FFT_TEST_SRC_ADDR);
+    CHECK_ASSERT(11, fft_read_reg(FFT_SRC_ADDR_OFFSET) == FFT_TEST_SRC_ADDR);
 
     fft_write_reg(FFT_DST_ADDR_OFFSET, FFT_TEST_DST_ADDR);
-    CHECK_ASSERT(11, fft_read_reg(FFT_DST_ADDR_OFFSET) == FFT_TEST_DST_ADDR);
+    CHECK_ASSERT(12, fft_read_reg(FFT_DST_ADDR_OFFSET) == FFT_TEST_DST_ADDR);
 
     fft_irq_enable(1);
-    CHECK_ASSERT(12, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 1);
+    CHECK_ASSERT(13, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 1);
 
     fft_irq_enable(0);
-    CHECK_ASSERT(13, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 0);
+    CHECK_ASSERT(14, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 0);
 
-    CHECK_ASSERT(14, fft_status() == 0);
+    fft_write_reg(FFT_CTRL_OFFSET, 0);
+    CHECK_ASSERT(15, fft_status() == 0);
+    return 0;
+}
+
+static int check_buffer_matches_reference(volatile const fft_sample_t *actual, int check_base) {
+    for (int index = 0; index < FFT_N; index++) {
+        CHECK_ASSERT(check_base + index, actual[index] == expected_buffer[index]);
+    }
+
     return 0;
 }
 
 static int check_output_matches_reference(int check_base) {
-    for (int index = 0; index < FFT_N; index++) {
-        CHECK_ASSERT(check_base + index, output_buffer[index] == expected_buffer[index]);
+    return check_buffer_matches_reference(output_buffer, check_base);
+}
+
+static int require_busy_before_done(int check_id) {
+    for (int attempt = 0; attempt < 32; attempt++) {
+        uint32_t status = fft_status();
+
+        if ((status >> FFT_STATUS_BUSY_BIT) & 1u) {
+            return 0;
+        }
+
+        CHECK_ASSERT(check_id, !((status >> FFT_STATUS_DONE_BIT) & 1u));
     }
 
-    return 0;
+    return check_id;
 }
 
 static int run_prepared_vector(int check_base, int clear_done_after_run) {
@@ -256,6 +283,107 @@ static int test_mixed_extreme_inputs(void) {
     return run_prepared_vector(3900, 1);
 }
 
+static int test_clear_done_idempotent(void) {
+    clear_input_buffer();
+    input_buffer[0] = FFT_SAMPLE(0x0200, 0x0100);
+    CHECK_CALL(run_prepared_vector(4100, 0));
+
+    CHECK_ASSERT(4129, fft_done());
+    fft_clear_done();
+    CHECK_ASSERT(4130, !fft_done());
+    fft_clear_done();
+    CHECK_ASSERT(4131, !fft_done());
+    CHECK_ASSERT(4132, !fft_busy());
+    CHECK_ASSERT(4133, fft_cycles() > 0);
+
+    return 0;
+}
+
+static int test_back_to_back_runs_without_done_clear(void) {
+    for (int vector = 0; vector < 4; vector++) {
+        clear_input_buffer();
+        input_buffer[vector % FFT_N] = fft_pack((int16_t)(0x0200 + 0x0100 * vector), (int16_t)(-0x0080 * vector));
+
+        clear_output_buffer();
+        prepare_expected_buffer();
+
+        fft_set_src((const fft_sample_t *)input_buffer);
+        fft_set_dst((fft_sample_t *)output_buffer);
+        fft_start();
+
+        // A new START must clear stale DONE from the previous run.
+        CHECK_ASSERT(4200 + 100 * vector, !fft_done() || fft_busy());
+
+        fft_wait_done();
+        CHECK_ASSERT(4201 + 100 * vector, fft_done());
+        CHECK_ASSERT(4202 + 100 * vector, !fft_busy());
+        CHECK_CALL(check_output_matches_reference(4210 + 100 * vector));
+    }
+
+    return 0;
+}
+
+static int test_start_write_while_busy(void) {
+    clear_input_buffer();
+    input_buffer[0]         = FFT_SAMPLE(0x0400, 0);
+    input_buffer[FFT_N / 2] = FFT_SAMPLE(-0x0200, 0x0100);
+
+    clear_output_buffer();
+    prepare_expected_buffer();
+
+    fft_set_src((const fft_sample_t *)input_buffer);
+    fft_set_dst((fft_sample_t *)output_buffer);
+    fft_start();
+    CHECK_CALL(require_busy_before_done(4600));
+    fft_start();
+    fft_wait_done();
+
+    CHECK_ASSERT(4601, fft_done());
+    CHECK_ASSERT(4602, !fft_busy());
+    return check_output_matches_reference(4610);
+}
+
+static int test_irq_control_write_during_run(void) {
+    clear_input_buffer();
+    input_buffer[0]         = FFT_SAMPLE(0x0100, 0x0200);
+    input_buffer[1 % FFT_N] = FFT_SAMPLE(-0x0080, 0x0040);
+
+    clear_output_buffer();
+    prepare_expected_buffer();
+
+    fft_irq_enable(0);
+    fft_set_src((const fft_sample_t *)input_buffer);
+    fft_set_dst((fft_sample_t *)output_buffer);
+    fft_start();
+    fft_irq_enable(1);
+    fft_wait_done();
+
+    CHECK_ASSERT(4701, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 1);
+    CHECK_ASSERT(4702, fft_done());
+    CHECK_ASSERT(4703, !fft_busy());
+    CHECK_CALL(check_output_matches_reference(4710));
+
+    fft_irq_enable(0);
+    CHECK_ASSERT(4730, fft_read_reg(FFT_IRQ_CTRL_OFFSET) == 0);
+    return 0;
+}
+
+static int test_in_place_buffer(void) {
+    clear_input_buffer();
+
+    for (int index = 0; index < FFT_N; index++) {
+        input_buffer[index]    = fft_pack((int16_t)(0x0180 - 0x20 * index), (int16_t)((index & 1) ? 0x0100 : -0x0080));
+        in_place_buffer[index] = input_buffer[index];
+    }
+
+    prepare_expected_buffer();
+    fft_run((const fft_sample_t *)in_place_buffer, (fft_sample_t *)in_place_buffer);
+
+    CHECK_ASSERT(4801, fft_done());
+    CHECK_ASSERT(4802, !fft_busy());
+    return check_buffer_matches_reference(in_place_buffer, 4810);
+}
+
 static int test_forward_inverse_relationship(void) {
     // Test mathematical consistency between forward and inverse FFT.
     // Forward FFT: impulse at 0 -> constant-like spectrum
@@ -310,6 +438,11 @@ int main(void) {
     CHECK_CALL(test_max_positive_inputs());
     CHECK_CALL(test_max_negative_inputs());
     CHECK_CALL(test_mixed_extreme_inputs());
+    CHECK_CALL(test_clear_done_idempotent());
+    CHECK_CALL(test_back_to_back_runs_without_done_clear());
+    CHECK_CALL(test_start_write_while_busy());
+    CHECK_CALL(test_irq_control_write_during_run());
+    CHECK_CALL(test_in_place_buffer());
     CHECK_CALL(test_forward_inverse_relationship());
 
     return 0;

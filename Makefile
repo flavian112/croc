@@ -6,8 +6,9 @@ PROJ_NAME       ?= croc
 TOP_DESIGN      ?= croc_chip
 BIN             ?= sw/bin/helloworld.hex
 VERILATOR_FLAGS ?=
+RISCV_EXTRA_CCFLAGS ?=
 
-export PROJ_NAME TOP_DESIGN VERILATOR_FLAGS
+export PROJ_NAME TOP_DESIGN VERILATOR_FLAGS RISCV_EXTRA_CCFLAGS
 
 YOSYS     := cd yosys && ./run_synthesis.sh
 VERILATOR := cd verilator && ./run_verilator.sh
@@ -25,7 +26,7 @@ CLANG_FORMAT_ARGS := -r sw --extensions c,h,cpp --clang-format-executable=clang-
 help:
 	@printf '%s\n' \
 		'Usage: make <target> [VARIABLE=value]' \
-		'Variables: PROJ_NAME, TOP_DESIGN, BIN, VERILATOR_FLAGS' \
+		'Variables: PROJ_NAME, TOP_DESIGN, BIN, VERILATOR_FLAGS, RISCV_EXTRA_CCFLAGS' \
 		'' \
 		'  init          Initialize git submodules' \
 		'  sw            Build all software images' \
@@ -46,6 +47,7 @@ help:
 		'Examples:' \
 		'  make test-fft' \
 		'  make sim BIN=sw/bin/test/test_fft.hex' \
+		'  make test-fft VERILATOR_FLAGS=-GFftLength=8 RISCV_EXTRA_CCFLAGS="-DFFT_SYNTH_LENGTH=8 -DFFT_SYNTH_LOG2_LENGTH=3"' \
 		'  make flow PROJ_NAME=croc TOP_DESIGN=croc_chip'
 
 init:

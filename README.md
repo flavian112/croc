@@ -105,6 +105,108 @@ FFTodile keeps the original Croc split between the main SoC and the user domain.
 
 ![Croc block diagram](doc/croc_arch.svg)
 
+Current user-domain structure:
+
+### `user_domain`
+
+```mermaid
+flowchart LR
+  xbar["Croc main OBI crossbar"]
+  sram["SRAM banks"]
+  irq["interrupts_o[0]"]
+
+  subgraph user["user_domain"]
+    sbr["user_sbr_obi_req/rsp"]
+    decode["addr_decode\nUserAddrMap"]
+    demux["obi_demux\n3 subordinate ports"]
+    rom["user_rom\n0x2000_0000"]
+    fft["fft_obi\n0x2000_1000"]
+    err["obi_err_sbr\ndefault unmapped response"]
+    mgr["user_mgr_obi_req/rsp"]
+
+    sbr --> decode --> demux
+    demux --> rom
+    demux --> fft
+    demux --> err
+    fft --> mgr
+    fft --> irq
+  end
+
+  xbar -->|register accesses| sbr
+  mgr -->|DMA reads/writes| xbar
+  xbar <--> sram
+```
+
+### `fft_obi`
+
+```mermaid
+flowchart LR
+  subgraph regs["register interface"]
+    ctrl["CTRL / STATUS"]
+    addr["SRC_ADDR / DST_ADDR"]
+    irqreg["IRQ_CTRL"]
+    cfg["CONFIG / CYCLES"]
+  end
+
+  subgraph fsm["transfer control"]
+    state["StateIdle\nStateFetch\nStateCompute\nStateStore"]
+    count["fetch/store counters\nbyte offsets"]
+    cycle["cycle counter\nlast_cycles"]
+  end
+
+  subgraph datapath["FFT engine hookup"]
+    core["fft_core"]
+  end
+
+  sbr["subordinate OBI\nsoftware-visible registers"] --> regs
+  regs --> state
+  addr --> state
+  state --> count
+  state --> cycle
+  state -->|start / samples / results| core
+  core -->|done / busy| regs
+  state -->|manager OBI DMA| mgr["manager OBI\nSRAM source + destination"]
+  regs --> irq["irq_o"]
+  cfg --> sbr
+```
+
+### `fft_core`
+
+```mermaid
+flowchart TD
+  start["start_i"] --> load
+
+  subgraph mem["local sample storage"]
+    realmem["real_mem_q[FftLength]"]
+    imagmem["imag_mem_q[FftLength]"]
+  end
+
+  subgraph control["iterative control"]
+    load["StateLoad\nbit-reversed input load"]
+    compute["StateCompute\nstage / group_base / butterfly_index"]
+    unload["StateUnload\nstream out results"]
+  end
+
+  subgraph butterfly["reused radix-2 butterfly datapath"]
+    twiddle["twiddle lookup\ncos/sin table"]
+    mult["complex multiply"]
+    addsub["sum / diff"]
+    scale["scale / round / saturate\ncompile-time options"]
+  end
+
+  load --> realmem
+  load --> imagmem
+  realmem --> compute
+  imagmem --> compute
+  compute --> twiddle --> mult --> addsub --> scale
+  scale --> realmem
+  scale --> imagmem
+  compute --> unload
+  realmem --> unload
+  imagmem --> unload
+  unload --> done["result_valid_o / done_o"]
+```
+
 Main blocks:
 
 - `croc_domain`: CVE2 core, SRAM banks, debug module, main OBI interconnect,

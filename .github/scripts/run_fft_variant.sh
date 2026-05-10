@@ -13,7 +13,7 @@ VERILATOR_VARIANT_FLAGS=${2:-}
 RISCV_VARIANT_FLAGS=${3:-}
 
 if [[ -z "$VARIANT_NAME" ]]; then
-    echo "Usage: $0 <variant-name> [verilator-flags] [riscv-ccflags]" >&2
+    echo "Usage: $0 <variant-name> [verilator-flags] [riscv-extra-ccflags]" >&2
     exit 1
 fi
 

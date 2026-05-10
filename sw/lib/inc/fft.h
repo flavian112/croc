@@ -32,6 +32,11 @@
  *
  * STATUS.DONE is sticky. Software clears it by writing a one to the DONE bit.
  * Starting a new transfer also clears the previous DONE indication.
+ * A START write while BUSY is set is ignored.
+ *
+ * Exact in-place operation is supported by passing the same buffer as source
+ * and destination. Other partially overlapping source/destination ranges are
+ * not part of the public API contract and should be avoided.
  *
  * A blocking transfer is normally issued with fft_run(). Lower-level helpers
  * are provided for tests, benchmarks, and code that wants to poll or use the
@@ -264,7 +269,9 @@ static inline void fft_set_src(const fft_sample_t *src) {
  * @brief Set the destination buffer address.
  *
  * The buffer must provide space for at least FFT_N packed samples and must
- * remain valid until the accelerator has finished.
+ * remain valid until the accelerator has finished. It may be the exact same
+ * buffer programmed as the source for an in-place run, but partially
+ * overlapping ranges are not supported.
  */
 static inline void fft_set_dst(fft_sample_t *dst) {
     fft_write_reg(FFT_DST_ADDR_OFFSET, (uint32_t)dst);
@@ -284,7 +291,8 @@ static inline void fft_irq_enable(int enable) {
  * @brief Start one FFT run.
  *
  * Source and destination addresses must be programmed before calling this
- * function. The START bit self-clears in hardware.
+ * function. The START bit self-clears in hardware. A START write while the
+ * accelerator is BUSY is ignored.
  */
 static inline void fft_start(void) {
     fft_write_reg(FFT_CTRL_OFFSET, 1u << FFT_CTRL_START_BIT);
@@ -302,7 +310,8 @@ static inline void fft_wait_done(void) {
  * @brief Run one blocking FFT transfer.
  *
  * This convenience helper programs the source and destination pointers, starts
- * the accelerator, and waits for completion.
+ * the accelerator, and waits for completion. Passing the same pointer for both
+ * arguments is supported for exact in-place operation.
  */
 static inline void fft_run(const fft_sample_t *src, fft_sample_t *dst) {
     fft_set_src(src);
