@@ -15,48 +15,53 @@ inputs:
     description: 'Name of the Docker service (default: from ./docker-compose.yml)'
     required: false
     default: ''
+  log_name:
+    description: 'File used to tee command output'
+    required: false
+    default: 'result.log'
 
 runs:
   using: 'composite'
   steps:
-    - name: Set up Docker environment
+    - name: Configure Docker user
       shell: bash
       run: |
+        set -euo pipefail
         echo "UID=$(id -u)" >> "$GITHUB_ENV"
         echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
-    - name: Get image name from docker-compose
-      id: get-image
+    - name: Resolve Docker service
       shell: bash
       run: |
-        IMAGE=$(docker compose config | awk '/image:/{print $2}' | head -n 1)
-        if [ -z "$IMAGE" ]; then
-          echo "[ERROR] No image found in docker-compose.yml"
+        set -euo pipefail
+        if [[ -n "${{ inputs.service_name }}" ]]; then
+          service_name="${{ inputs.service_name }}"
+        else
+          service_name="$(docker compose config --services | head -n 1)"
+        fi
+        if [[ -z "$service_name" ]]; then
+          echo "[ERROR] No service found in docker-compose.yml" >&2
           exit 1
         fi
-        echo "IMAGE_NAME=$IMAGE" >> "$GITHUB_ENV"
+        echo "service_name=$service_name" >> "$GITHUB_ENV"
 
     - name: Pull Docker image
       shell: bash
       run: |
+        set -euo pipefail
+        echo "::group::docker compose pull"
         docker compose pull
-
-    - name: Determine service name if not provided
-      shell: bash
-      run: |
-        if [ -z "${{ inputs.service_name }}" ]; then
-          SERVICE_NAME=$(docker compose config --services | head -n 1)
-          echo "service_name=$SERVICE_NAME" >> "$GITHUB_ENV"
-        else
-          echo "service_name=${{ inputs.service_name }}" >> "$GITHUB_ENV"
-        fi
+        echo "::endgroup::"
 
     - name: Run commands in OSEDA container
       shell: bash
       run: |
         set -euo pipefail
-        # Avoid extra pulls now that we've already pulled
-        docker compose up -d --pull=never
-        docker compose exec -T "${{ env.service_name }}" \
-          bash -lc "source ~/.bashrc; ${{ inputs.cmd }}" | tee result.log
-        echo "result_log=$(pwd)/result.log" >> "$GITHUB_ENV"
+        log_name="${{ inputs.log_name }}"
+        echo "::group::OSEDA: ${{ inputs.cmd }}"
+        docker compose run --rm -T --no-deps --pull=never "${{ env.service_name }}" \
+          --skip bash -lc "source ~/.bashrc; ${{ inputs.cmd }}" 2>&1 | tee "$log_name"
+        status="${PIPESTATUS[0]}"
+        echo "::endgroup::"
+        echo "result_log=$(pwd)/$log_name" >> "$GITHUB_ENV"
+        exit "$status"

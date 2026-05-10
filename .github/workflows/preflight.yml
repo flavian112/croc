@@ -20,38 +20,46 @@ on:
       - 'doc/**'
 
 concurrency:
-  group: preflight-${{ github.workflow }}-${{ github.ref }}
+  group: preflight-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  lint-python:
+  static:
+    name: Static checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      - name: Check Python with black
-        uses: rickstaa/action-black@v1
-        with:
-          black_args: "klayout/scripts --check"
 
-  lint-cxx:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-      - name: Run clang-format
-        uses: DoozyX/clang-format-lint-action@v0.18.2
-        with:
-          source: 'sw'
-          extensions: 'c,h,cpp'
-          clangFormatVersion: 17
+      - name: Install formatting tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang-format-17
+          python3 -m pip install --user black
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-  generated-file-sanity:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-      - name: Verify config toggles restore tracked sources cleanly
+      - name: Check scripts and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n .github/scripts/*.sh
+          python3 - <<'PY'
+          import ast
+          import pathlib
+
+          for path in sorted(pathlib.Path(".github/scripts").glob("*.py")):
+              ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              print(f"OK {path}")
+          PY
+          make lint
+
+      - name: Check generated config restore
         shell: bash
         run: |
           set -euo pipefail
@@ -59,27 +67,34 @@ jobs:
           .github/scripts/set_croc_config.sh
           git diff --exit-code -- rtl/croc_pkg.sv
 
-  smoke-sim:
+  smoke:
+    name: Smoke simulation
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    needs: static
     steps:
-      - name: Checkout repository (with submodules)
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           submodules: true
+
       - name: Free disk space
         uses: ./.github/actions/free-space
-      - name: Run preflight smoke simulation in OSEDA
+
+      - name: Run local preflight in OSEDA
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: ".github/scripts/run_preflight.sh"
-      - name: Upload preflight logs
+          log_name: preflight.log
+
+      - name: Upload preflight artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: preflight-smoke-logs
+          name: preflight-smoke
+          if-no-files-found: ignore
           path: |
-            result.log
+            preflight.log
             verilator/croc.log
             verilator/croc.fst
             verilator/fft-default.log

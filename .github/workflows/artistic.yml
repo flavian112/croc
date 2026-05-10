@@ -2,9 +2,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
-# Author:  Thomas Benz <tbenz@iis.ee.ethz.ch>
-
 name: ArtistIC Render
 
 on:
@@ -19,14 +16,23 @@ on:
     paths:
       - 'artistic/**'
 
+concurrency:
+  group: artistic-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  artistic:
+  render:
+    name: Render and deploy map
     runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' ||
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     timeout-minutes: 60
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
+      contents: read
       pages: write
       id-token: write
       actions: read
@@ -34,101 +40,116 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-
-      # Check out croc repo and cleanup
-      - name: Checkout repository (with submodules)
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           submodules: recursive
+
       - name: Free disk space
         uses: ./.github/actions/free-space
 
-      # Find latest successful Full Flow run if triggered by push or workflow_dispatch
       - name: Find latest successful Full Flow run
         if: ${{ github.event_name != 'workflow_run' }}
         id: find-run
         shell: bash
         run: |
-          LATEST_RUN_ID=$(curl -s \
+          set -euo pipefail
+          run_id="$(curl -fsSL \
             -H "Authorization: token ${{ github.token }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/full-flow.yml/runs?branch=main&status=completed&conclusion=success&per_page=1" \
-            | jq -r '.workflow_runs[0].id')
-          
-          if [ -z "$LATEST_RUN_ID" ] || [ "$LATEST_RUN_ID" = "null" ]; then
-            echo "Error: No successful Full Flow run found"
+            | jq -r '.workflow_runs[0].id')"
+
+          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+            echo "No successful Full Flow run found on main." >&2
             exit 1
           fi
-          
-          echo "run-id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
-      
-      # Restore previous artifacts (GDS and DEF)
-      - name: Download GDS artifact from "Full Flow" workflow
+
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download sealed GDS
         uses: actions/download-artifact@v8
         with:
-          name: full-flow-gds-sealed
+          name: full-sealed-gds
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id || steps.find-run.outputs.run-id }}
           path: klayout/out
-      - name: Download DEF artifact from "Full Flow" workflow
+
+      - name: Download OpenROAD outputs
         uses: actions/download-artifact@v8
         with:
-          name: full-flow-openroad-out
+          name: full-openroad
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id || steps.find-run.outputs.run-id }}
           path: openroad
 
-      # Install dependencies
-      - name: Update package lists and install Inkscape, img2pdf, Magick, potrace, Pillow
+      - name: Install host rendering tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y inkscape img2pdf imagemagick potrace
-          pip install --break-system-packages svgpathtools Pillow
-      - name: Install packages in OSEDA
+          sudo apt-get install -y imagemagick img2pdf inkscape potrace
+          python3 -m pip install --break-system-packages Pillow svgpathtools
+
+      - name: Install OSEDA Python dependencies
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: "pip install --break-system-packages gdspy"
+          log_name: artistic-install.log
 
-      # Prepare and create logo
       - name: Prepare logo
+        shell: bash
         run: |
-          cd artistic; ./run_artistic.sh --prepare-logo
-      - name: Create Logo
+          set -euo pipefail
+          cd artistic
+          ./run_artistic.sh --prepare-logo
+
+      - name: Create logo GDS
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: "cd artistic; ./run_artistic.sh --create-logo croc.sealed.gds.gz"
+          log_name: artistic-create-logo.log
 
-      # Render Chip
-      - name: Render RAW
+      - name: Render raw chip
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: "cd artistic; ./run_artistic.sh --render-raw"
-      - name: Render PDF
-        run: |
-          cd artistic; ./run_artistic.sh --render-pdf
+          log_name: artistic-render-raw.log
 
-      # Render Outlines
-      - name: Create annotated outlines SVG
+      - name: Render PDF and outline
+        shell: bash
         run: |
-          cd artistic; ./run_artistic.sh --outline
+          set -euo pipefail
+          cd artistic
+          ./run_artistic.sh --render-pdf
+          ./run_artistic.sh --outline
 
-      # Render Map
-      - name: Render map RAW
+      - name: Render map raw
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: "cd artistic; ./run_artistic.sh --render-map-raw"
-      - name: Render map DB
-        run: |
-          cd artistic; ./run_artistic.sh --render-map-db
+          log_name: artistic-render-map-raw.log
 
-      # Upload artifacts
+      - name: Render map database
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artistic
+          ./run_artistic.sh --render-map-db
+
       - name: Upload ArtistIC artifacts
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: croc-artistic
+          name: artistic-render
+          if-no-files-found: ignore
           path: |
+            artistic-install.log
+            artistic-create-logo.log
+            artistic-render-raw.log
+            artistic-render-map-raw.log
             artistic/meerkat_work/croc.sealed.gds.gz
             artistic/meerkat_work/croc_logo.*
             artistic/meerkat_work/*.log
@@ -136,19 +157,21 @@ jobs:
             artistic/renderics/croc_render.*
             artistic/renderics/croc_colors.svg
             artistic/renderics/*.log
-        continue-on-error: true
 
-      # Deploy
-      - name: Copy files to be deployed
+      - name: Prepare pages payload
+        shell: bash
         run: |
+          set -euo pipefail
           cp openroad/reports/04_croc.routed.png artistic/mapify/croc_routed.png
           cp artistic/meerkat_work/croc_logo.gds artistic/mapify/croc_logo.gds
           cp artistic/renderics/croc_modules.jpg artistic/mapify/croc_modules.jpg
           cp artistic/renderics/croc_render.jpg artistic/mapify/croc_render.jpg
-      - name: Upload OpenStreetMap DB to pages
+
+      - name: Upload map viewer
         uses: actions/upload-pages-artifact@v5
         with:
           path: artistic/mapify
+
       - name: Deploy pages
         if: github.ref == 'refs/heads/main'
         id: deployment

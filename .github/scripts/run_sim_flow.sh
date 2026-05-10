@@ -14,6 +14,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CROC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+cleanup() {
+    "$SCRIPT_DIR/set_croc_config.sh"
+}
+
+trap cleanup EXIT
+
 cd "$CROC_ROOT"
 
 echo "============================================="

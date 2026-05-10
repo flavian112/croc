@@ -394,10 +394,20 @@ versions.
 
 | Workflow | Triggers | Purpose |
 | --- | --- | --- |
-| `Preflight` | PRs, pushes to any branch, manual | Formatting, generated-file sanity, local preflight smoke simulation |
-| `Short Flow` | PRs, pushes to `main`, manual | Simulation flow, FFT variant matrix, benchmark, synthesis metrics |
-| `Full Flow` | PRs, pushes to `main`, releases, manual | Yosys/OpenROAD/KLayout full backend flow through sealed GDS |
+| `Preflight` | PRs, pushes to any branch, manual | Static checks first, then local preflight smoke simulation |
+| `Short Flow` | PRs, pushes to `main`, manual | Simulation regression, FFT variant matrix with benchmark metrics, and synthesis metrics |
+| `Full Flow` | Successful `Short Flow` on `main`, releases, manual | Yosys/OpenROAD/KLayout full backend flow through sealed GDS |
 | `ArtistIC Render` | Successful Full Flow on `main`, pushes to `artistic/**`, manual | Logo/artistic rendering, map generation, GitHub Pages deployment |
+
+The intended pipeline order is:
+
+```text
+Preflight -> Short Flow -> Full Flow -> ArtistIC Render
+```
+
+Preflight and Short Flow both run on pull requests. Full Flow is intentionally
+kept out of the normal PR path because it is much heavier; it runs automatically
+after Short Flow succeeds on `main`, or when triggered manually/release-driven.
 
 Important CI scripts:
 

@@ -2,65 +2,72 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# Author:  Philippe Sauter <phsauter@iis.ee.ethz.ch>
-# Author:  Thomas Benz <tbenz@iis.ee.ethz.ch>
-
 name: Full Flow
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'artistic/**'
-      - 'doc/**'
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - 'artistic/**'
-      - 'doc/**'
+  workflow_run:
+    workflows: ["Short Flow"]
+    types: [completed]
+    branches: [main]
   release:
     types:
       - created
 
 concurrency:
-  group: full-flow-${{ github.workflow }}-${{ github.ref }}
+  group: full-flow-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   backend:
+    name: Backend through sealed GDS
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
-      - name: Checkout repository (with submodules)
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           submodules: recursive
+
       - name: Free disk space
         uses: ./.github/actions/free-space
-      - name: Run Yosys, OpenROAD and KLayout
+
+      - name: Run full flow in OSEDA
         uses: ./.github/actions/oseda-cmd
         with:
           cmd: ".github/scripts/run_full_flow.sh"
-      - name: Upload openroad outputs
+          log_name: full-flow.log
+
+      - name: Upload OpenROAD artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: full-flow-openroad-out
+          name: full-openroad
+          if-no-files-found: ignore
           path: |
+            full-flow.log
             openroad/out
             openroad/logs
             openroad/reports
-      - name: Upload gds
-        uses: actions/upload-artifact@v6
-        with:
-          name: full-flow-gds
-          path: klayout/out/croc.gds.gz
-      - name: Upload sealed gds
+
+      - name: Upload GDS
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: full-flow-gds-sealed
+          name: full-gds
+          if-no-files-found: ignore
+          path: klayout/out/croc.gds.gz
+
+      - name: Upload sealed GDS
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: full-sealed-gds
+          if-no-files-found: ignore
           path: klayout/out/croc.sealed.gds.gz
