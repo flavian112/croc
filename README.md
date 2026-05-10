@@ -121,12 +121,13 @@ ignored by git and should be treated as build artifacts.
 
 Current layout snapshots:
 
-| Module Placement | Routed Design |
-| :---: | :---: |
-| <img src="https://flavian112.github.io/fftodile/snapshots/fftodile_modules.jpg" alt="FFTodile module placement" width="420"> | <img src="https://flavian112.github.io/fftodile/snapshots/fftodile_routed.png" alt="FFTodile routed design" width="420"> |
+| Module Placement | Routed Design | Rendered Chip |
+| :---: | :---: | :---: |
+| <img src="https://flavian112.github.io/fftodile/snapshots/fftodile_modules.jpg" alt="FFTodile module placement" width="300"> | <img src="https://flavian112.github.io/fftodile/snapshots/fftodile_routed.png" alt="FFTodile routed design" width="300"> | <img src="https://flavian112.github.io/fftodile/snapshots/fftodile_render.jpg" alt="FFTodile rendered chip" width="300"> |
 
 These images are refreshed by the `ArtistIC Render` GitHub Pages workflow. The
-checked-in images under `doc/` are static reference snapshots.
+checked-in images under `doc/` are static reference snapshots. The interactive
+map viewer is published at <https://flavian112.github.io/fftodile/>.
 
 ## Memory Map
 
